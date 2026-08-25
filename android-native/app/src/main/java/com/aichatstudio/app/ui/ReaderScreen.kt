@@ -12,7 +12,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import java.io.File
+import java.nio.charset.Charset
 
 /** 阅读窗口：项目文件浏览 / 打开 / 编辑保存 / 阅读风格 / 字号 / 回顶回底。 */
 @Composable
@@ -27,11 +29,12 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
     var fs by remember { mutableStateOf(state.settings.fontSize) }
     var status by remember { mutableStateOf("") }
     val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
 
     fun loadFile(f: File) {
         currentFile = f
         content = try { f.readText(Charsets.UTF_8) } catch (e: Exception) {
-            try { f.readText(Charsets.GBK) } catch (e2: Exception) { "[!] 打开失败：${e2.message}" }
+            try { f.readText(Charset.forName("GBK")) } catch (e2: Exception) { "[!] 打开失败：${e2.message}" }
         }
         editing = false
         title = f.name
@@ -87,8 +90,8 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
             TextButton(onClick = {
                 fileList = state.listDir(state.store.root).map { it.first to it.second }
             }) { Text("应用目录", color = pal.text, fontSize = 13.sp) }
-            TextButton(onClick = { scroll.scrollTo(0) }) { Text("回顶", color = pal.text, fontSize = 13.sp) }
-            TextButton(onClick = { scroll.scrollTo(scroll.maxValue) }) { Text("回底", color = pal.text, fontSize = 13.sp) }
+            TextButton(onClick = { scope.launch { scroll.scrollTo(0) } }) { Text("回顶", color = pal.text, fontSize = 13.sp) }
+            TextButton(onClick = { scope.launch { scroll.scrollTo(scroll.maxValue) } }) { Text("回底", color = pal.text, fontSize = 13.sp) }
         }
 
         // 文件列表（点击打开 / 目录则进入）

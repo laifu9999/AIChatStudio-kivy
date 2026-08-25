@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.aichatstudio.app.ai.AiClient
 import com.aichatstudio.app.data.ChatMessage
 import com.aichatstudio.app.data.Providers

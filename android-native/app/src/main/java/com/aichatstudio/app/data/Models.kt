@@ -3,10 +3,10 @@ package com.aichatstudio.app.data
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 一条聊天消息（JSON 持久化）。 */
+/** 一条聊天消息（JSON 持久化）。content 用 var：流式输出时需要就地更新内容。 */
 data class ChatMessage(
     val role: String,        // user / assistant / system
-    val content: String,
+    var content: String,
     val ts: Long = System.currentTimeMillis(),
 ) {
     fun toJson(): JSONObject = JSONObject()
