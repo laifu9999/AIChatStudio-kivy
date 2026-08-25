@@ -75,6 +75,12 @@ object Styles {
     /** 根据 settings.fontFamily 返回 Compose 用 FontFamily（default 返回系统默认）。 */
     fun fontFamilyOf(key: String): FontFamily {
         val name = fontTypefaceMap[key] ?: return FontFamily.Default
-        return FontFamily(AndroidFont(name))
+        return try {
+            // AndroidFont 构造器需要 android.graphics.Typeface 实例（从系统字体名加载）
+            val tf = android.graphics.Typeface.create(name, android.graphics.Typeface.NORMAL)
+            FontFamily(AndroidFont(tf))
+        } catch (e: Exception) {
+            FontFamily.Default
+        }
     }
 }
