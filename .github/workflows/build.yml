@@ -7,7 +7,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Ubuntu 24.04 自带的 autoconf/libtool 版本过新，会导致 python-for-android 的
+    # libffi 配方 autoreconf 失败（configure.ac: error: possibly undefined macro:
+    # LT_SYS_SYMBOL_USCORE）。改用 22.04（autoconf 2.71 / libtool 2.4.6 兼容 libffi）。
+    runs-on: ubuntu-22.04
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -22,7 +25,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip \
             autoconf libtool pkg-config zlib1g-dev libncurses5-dev \
-            libffi-dev libssl-dev
+            libffi-dev libssl-dev automake
           pip install --upgrade pip
           pip install buildozer Cython==0.29.33
 
@@ -55,12 +58,15 @@ jobs:
         with:
           path: |
             ~/.buildozer
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          # -v2：上一版缓存里含在 ubuntu-24.04 上编译失败的 libffi，必须换新 key 强制重建
+          key: ${{ runner.os }}-buildozer-v2-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            ${{ runner.os }}-buildozer-
+            ${{ runner.os }}-buildozer-v2-
 
       - name: 构建 APK（debug）
+        # pipefail：确保 buildozer 真实报错能中断步骤、被准确报告（之前用 tee 掩盖了退出码）
         run: |
+          set -eo pipefail
           buildozer -v android debug 2>&1 | tee buildozer_build.log
 
       - name: 上传 APK
