@@ -40,7 +40,7 @@ KV = """
             size: self.size
     BoxLayout:  # 顶栏：会话 / 状态 / 阅读 / 投喂 / 工具 / 设置
         size_hint_y: None
-        height: dp(42)
+        height: dp(38)
         padding: dp(4), 0
         spacing: dp(3)
         canvas.before:
@@ -117,7 +117,8 @@ KV = """
         id: feed_bar
         size_hint_y: None
         height: 0
-        padding: dp(6), 0
+        padding: 0, 0
+        opacity: 0
         canvas.before:
             Color:
                 rgba: theme.RC('panel')
@@ -127,6 +128,8 @@ KV = """
         Label:
             id: feed_status
             text: ''
+            size_hint_y: None
+            height: 0
             color: theme.RC('accent')
             font_size: fs(11)
             halign: 'left'
@@ -141,7 +144,7 @@ KV = """
                 id: bubbles
                 cols: 1
                 spacing: dp(8)
-                padding: dp(10), dp(4), dp(10), dp(10)
+                padding: dp(8), 0, dp(8), dp(4)
                 size_hint_y: None
                 height: self.minimum_height
         BoxLayout:  # 悬浮在右下角的回顶/回底
@@ -227,7 +230,7 @@ class ChatBubble(BoxLayout):
             Color(rgba=theme.RC('user_bubble') if role == "user" else theme.RC('ai_bubble'))
             self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
         self.bind(pos=self._upd, size=self._upd)
-        inner = BoxLayout(orientation="horizontal", padding=dp(10), spacing=dp(6))
+        inner = BoxLayout(orientation="horizontal", padding=(dp(10), dp(6), dp(10), dp(6)), spacing=dp(6))
         self.label = Label(
             text=text, color=theme.RC('text'), font_size=theme.fs(16),
             size_hint_y=None, text_size=(Window.width - dp(80), None),
@@ -419,14 +422,19 @@ class ChatScreen(BoxLayout):
 
     def set_feed_status(self, text):
         try:
-            self.ids.feed_status.text = text
+            lbl = self.ids.feed_status
             bar = self.ids.feed_bar
+            lbl.text = text
             if text:
                 bar.height = dp(20)
+                bar.padding = (dp(6), 0)
                 bar.opacity = 1
+                lbl.height = dp(20)
             else:
                 bar.height = 0
+                bar.padding = (0, 0)
                 bar.opacity = 0
+                lbl.height = 0
         except Exception:
             pass
 

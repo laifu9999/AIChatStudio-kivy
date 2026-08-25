@@ -20,7 +20,7 @@ source.exclude_patterns = *.pyc,*.pyo,*/__pycache__/*
 source.main = main.py
 
 # (list) 依赖（python-for-android 会交叉编译）
-requirements = python3==3.11.10,kivy==2.3.0,plyer,requests
+requirements = hostpython3==3.11.10,python3==3.11.10,kivy==2.3.0,plyer,requests
 
 # (str) 开发版本号
 version = 1.0.0
