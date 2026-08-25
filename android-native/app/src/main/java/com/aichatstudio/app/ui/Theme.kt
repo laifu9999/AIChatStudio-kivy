@@ -1,7 +1,6 @@
 package com.aichatstudio.app.ui
 
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.AndroidFont
 import androidx.compose.ui.text.font.FontFamily
 
 /** 阅读小说风格配色（与桌面版一致）。 */
@@ -76,9 +75,9 @@ object Styles {
     fun fontFamilyOf(key: String): FontFamily {
         val name = fontTypefaceMap[key] ?: return FontFamily.Default
         return try {
-            // AndroidFont 构造器需要 android.graphics.Typeface 实例（从系统字体名加载）
+            // 直接用 android.graphics.Typeface 构造 FontFamily（旧 API 但最稳）
             val tf = android.graphics.Typeface.create(name, android.graphics.Typeface.NORMAL)
-            FontFamily(AndroidFont(tf))
+            FontFamily(tf)
         } catch (e: Exception) {
             FontFamily.Default
         }
