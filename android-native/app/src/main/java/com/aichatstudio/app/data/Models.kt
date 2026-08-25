@@ -78,6 +78,16 @@ object Providers {
             freeTier = true, defaultModel = "glm-4-flash"),
         ProviderPreset("智谱GLM(Flash)", "https://open.bigmodel.cn/api/paas/v4", "openai",
             freeTier = true, defaultModel = "glm-4.7-flash"),
+        ProviderPreset("Google Gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "openai",
+            defaultModel = "gemini-1.5-flash"),
+        ProviderPreset("Groq", "https://api.groq.com/openai/v1", "openai",
+            defaultModel = "llama-3.1-70b-versatile"),
+        ProviderPreset("Mistral", "https://api.mistral.ai/v1", "openai",
+            defaultModel = "mistral-large-latest"),
+        ProviderPreset("xAI Grok", "https://api.x.ai/v1", "openai",
+            defaultModel = "grok-2-latest"),
+        ProviderPreset("Ollama(本地)", "http://10.0.2.2:11434/v1", "openai",
+            freeTier = true, defaultModel = "llama3.2"),
         ProviderPreset("自定义OpenAI兼容", "", "openai"),
     )
 

@@ -4,10 +4,20 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- 狗头（红） -->
     <path
         android:fillColor="#E53935"
-        android:pathData="M54,8C29,8 9,25 9,47C9,61 18,73 32,79L28,100L48,87C50,87.3 52,87.5 54,87.5C79,87.5 99,70.7 99,47C99,25 79,8 54,8Z" />
+        android:pathData="M28,14 L10,50 L36,56 L36,82 C36,98 72,98 72,82 L72,56 L98,50 L80,14 L60,40 L54,34 L48,40 Z" />
+    <!-- 左眼（白） -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M32,38h44v8h-44zM32,52h44v8h-44zM32,66h28v8h-28z" />
+        android:pathData="M44,64 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+    <!-- 右眼（白） -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M64,64 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+    <!-- 鼻子（深棕） -->
+    <path
+        android:fillColor="#3E2723"
+        android:pathData="M48,76 L60,76 L58,82 L50,82 Z" />
 </vector>

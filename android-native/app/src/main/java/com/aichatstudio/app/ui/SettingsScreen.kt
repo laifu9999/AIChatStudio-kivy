@@ -67,6 +67,33 @@ fun SettingsScreen(state: AppState, onBack: () -> Unit) {
                                 modelOptions = listOf(p.defaultModel).filter { it.isNotEmpty() }
                             }
                             providerMenu = false
+                            // 切到新提供商后自动拉取模型列表
+                            scope.launch {
+                                val preset = Providers.byName(state.settings.provider) ?: return@launch
+                                if (state.settings.apiKey.isBlank() && !preset.freeTier &&
+                                    name != "Ollama(本地)" && name != "自定义OpenAI兼容"
+                                ) {
+                                    status = "请先填写 API Key 再获取模型"
+                                    return@launch
+                                }
+                                status = "自动获取 ${name} 模型列表…"
+                                try {
+                                    val c = AiClient(
+                                        preset = preset,
+                                        apiKey = state.settings.apiKey,
+                                        model = state.settings.model,
+                                        baseUrlOverride = state.settings.baseUrl.takeIf { it.isNotBlank() }
+                                    )
+                                    val models = withContext(Dispatchers.IO) { c.fetchModels() }
+                                    modelOptions = models
+                                    if (models.isNotEmpty()) {
+                                        state.settings = state.settings.copy(model = models.first())
+                                    }
+                                    status = "已自动获取 ${models.size} 个模型"
+                                } catch (e: Exception) {
+                                    status = "自动获取失败：${e.message}（可手动点下方按钮重试）"
+                                }
+                            }
                         })
                     }
                 }

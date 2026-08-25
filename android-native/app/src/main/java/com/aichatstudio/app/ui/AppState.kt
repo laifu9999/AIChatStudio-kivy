@@ -59,7 +59,41 @@ class AppState(app: Application) : AndroidViewModel(app) {
             "或用 ```file 路径\\n正文``` 代码块。程序会自动创建目录并写入到设备（UTF-8）。\n" +
             "也可用 ```copy/move/rename/read/list/create_dir/append/replace/delete/open_url``` 等代码块操作文件和打开网页。\n" +
             "【严禁】回复「无法保存/做不到/建议复制到其他App」等话术 —— 你的输出会被自动执行，写入设备。" +
-            "用户要求保存时，直接输出文件内容并带上标记即可。"
+            "用户要求保存时，直接输出文件内容并带上标记即可。\n\n" +
+            "[保存规范 - 用户要求保存时严格执行]\n" +
+            "1) 按用户说的「分类/类别」建文件夹：用 ```create_dir 分类名``` 先建目录。\n" +
+            "2) 每一篇/每一类用【单独文件】保存：在每段正文前加 %%FILE:分类/命名.ext%% 标记（ext 为 .txt/.md）。\n" +
+            "3) 文件命名要符合内容：不要用通用名如 new1.txt；用故事名/章节名/主题名。\n" +
+            "4) 正文【只在标记后出现一次】，不要在标记前/后/教程里重复写内容。\n" +
+            "5) 【严禁】给「打开记事本→粘贴→另存为」这类手把手保存步骤；【严禁】说「我无法保存」。\n" +
+            "6) 保存完后回复一句「已保存到：路径」即可，不要再贴正文。\n" +
+            "7) 文件可在 App「阅读」→「项目文件」里直接打开查看。"
+
+        // 当用户消息含保存意图时，本轮追加的强化指令（recency 提示）
+        private const val SAVE_NUDGE = "【本次要求保存文件】" +
+            "你必须立即执行：\n" +
+            "① 如果是分类/分篇保存，先用 ```create_dir 分类名``` 建目录；\n" +
+            "② 为每一篇/每一类用 %%FILE:分类/命名.ext%% 标记（命名贴合内容，不要用 1.txt 这种）；\n" +
+            "③ 正文【只在标记之后写一遍】，写完即结束；\n" +
+            "④ 【绝对不要】回复「我无法保存/打开记事本粘贴」之类的话，标记里的内容会被程序自动写入设备。"
+
+        // 流式显示时，去掉 ```thinking ... ``` 思考块（UI 端也会剥，这里给后端兜底）
+        private val THINKING_RE = Regex("```thinking\\s*\\n(.*?)```", RegexOption.DOT_MATCHES_ALL)
+        fun stripThinking(content: String): String =
+            content.replace(THINKING_RE, "").trim()
+
+        // 检测用户是否要求保存/创建文件
+        fun looksLikeSaveRequest(text: String): Boolean {
+            val t = text.lowercase()
+            val keys = listOf(
+                "保存", "存到", "存入", "写入", "写进", "写到", "建文件", "创建文件", "创立文件",
+                "建文件夹", "创建文件夹", "创立文件夹", "建目录", "创建目录", "建个文件",
+                "分类保存", "分类存", "单独文件", "生成文件", "存为", "另存为", "写到文件",
+                "save", "create file", "create folder", "create directory", "mkdir", "make folder",
+                "make directory", "write to file", "write file", "store to", "save as"
+            )
+            return keys.any { t.contains(it) }
+        }
     }
 
     fun rebuildClient() {
@@ -179,28 +213,58 @@ class AppState(app: Application) : AndroidViewModel(app) {
             val msgs = if (ctx.isNotBlank()) {
                 mutableListOf(ChatMessage("system", ctx)).apply { addAll(holder) }
             } else holder
+            // 检测到保存意图：在请求末尾追加强化指令（不写入会话历史）
+            if (looksLikeSaveRequest(userText)) {
+                msgs.add(ChatMessage("system", SAVE_NUDGE))
+            }
             val streamBubble = ChatMessage("assistant", "")
             s.messages.add(streamBubble)
             current = s; messages = s.messages.toList()
 
             val buffer = StringBuilder()
             var full = ""
-            // 客户端打字机：不管服务端怎么分块，前台按节奏逐字"吐出"显示并触发底部自动滚动
+            val showThink = settings.showThinking
+            // 客户端打字机：showThink=true 时整段流；否则跳过 ```thinking``` 块只流式显示最终答案
             val typingJob = viewModelScope.launch(Dispatchers.Main) {
                 var shown = 0
+                var streamStart = 0
+                var inThinkPhase = false
                 while (streaming) {
                     val target = synchronized(buffer) { buffer.toString() }
-                    if (shown < target.length) {
-                        val gap = target.length - shown
-                        // 步长：差距大则快一些追上，差距小则 1 字，体感像打字
+                    if (showThink) {
+                        streamStart = 0
+                    } else {
+                        val m = THINKING_RE.find(target)
+                        if (m != null) {
+                            val newStart = m.range.last + 1
+                            if (streamStart != newStart) {
+                                streamStart = newStart
+                                shown = 0
+                            }
+                        } else if (target.contains("```thinking")) {
+                            // 思考块还没写完：只显示"思考中"
+                            if (!inThinkPhase) {
+                                inThinkPhase = true
+                                streamBubble.content = "思考中…"
+                                messages = s.messages.toList()
+                            }
+                            kotlinx.coroutines.delay(28); continue
+                        } else {
+                            streamStart = 0
+                        }
+                    }
+                    inThinkPhase = false
+                    val displayable = target.substring(streamStart)
+                    if (shown < displayable.length) {
+                        val gap = displayable.length - shown
                         val step = when {
                             gap > 200 -> 6
                             gap > 80 -> 4
                             gap > 20 -> 2
                             else -> 1
                         }
-                        shown = (shown + step).coerceAtMost(target.length)
-                        streamBubble.content = target.substring(0, shown) + "▌"
+                        shown = (shown + step).coerceAtMost(displayable.length)
+                        streamBubble.content = displayable.substring(0, shown) + "▌"
                         messages = s.messages.toList()
                     }
                     kotlinx.coroutines.delay(28)
@@ -219,15 +283,16 @@ class AppState(app: Application) : AndroidViewModel(app) {
             }
             streaming = false
             typingJob.join()
-            streamBubble.content = full
+            streamBubble.content = stripThinking(full)
             if (full.startsWith("[!]") || full.isBlank()) {
                 // 出错时保留错误气泡
             } else if (settings.autoExec) {
-                // 自动执行文件/命令操作
+                // 自动执行文件/命令操作（用原始 full 确保能扫到标记）
                 applyFileOps(full)
             }
+            val stored = stripThinking(full)
             s.messages.remove(streamBubble)
-            s.messages.add(ChatMessage("assistant", full))
+            s.messages.add(ChatMessage("assistant", stored))
             current = s; messages = s.messages.toList()
             store.saveSession(s)
             streaming = false
