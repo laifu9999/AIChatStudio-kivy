@@ -8,6 +8,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,6 +33,15 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
     var status by remember { mutableStateOf("") }
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
+    val editFocus = remember { FocusRequester() }
+
+    // 进入编辑时自动聚焦并弹出输入法；配合 imePadding 整体上移，输入框不被键盘盖住
+    LaunchedEffect(editing) {
+        if (editing) {
+            kotlinx.coroutines.delay(120)
+            editFocus.requestFocus()
+        }
+    }
 
     fun loadFile(f: File) {
         currentFile = f
@@ -46,6 +57,7 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(pal.bg)
+            .imePadding()
     ) {
         // 顶栏
         Row(
@@ -129,7 +141,8 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
                 onValueChange = { editText = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
+                    .weight(1f)
+                    .focusRequester(editFocus),
                 textStyle = TextStyle(fontSize = fs.sp, color = pal.text),
             )
         } else {

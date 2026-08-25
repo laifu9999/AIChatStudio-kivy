@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -90,6 +91,7 @@ fun ChatScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(pal.bg)
+            .imePadding()
     ) {
         // 顶栏
         Row(
@@ -235,9 +237,10 @@ fun MessageBubble(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Center,
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(if (isUser) 0.86f else 1f),
-        ) {
+        SelectionContainer {
+            Column(
+                modifier = Modifier.fillMaxWidth(if (isUser) 0.86f else 1f),
+            ) {
             if (!isUser && showThinking && reason.isNotEmpty()) {
                 Text(
                     text = reason,
@@ -266,6 +269,7 @@ fun MessageBubble(
                     .background(bubbleColor)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             )
+            }
         }
     }
 }

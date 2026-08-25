@@ -138,6 +138,7 @@ class AiClient(
         onToken: suspend (String) -> Unit,
     ): String {
         val full = StringBuilder()
+        var thinkOpen = false
         try {
             client.newCall(req).execute().use { resp ->
                 if (resp.code != 200) {
@@ -158,8 +159,23 @@ class AiClient(
                             ?.optJSONObject("delta") ?: continue
                         // 过滤空 content、JSON null、以及 Deepseek 等模型偶发返回的字面量
                         // "null"/"None"（避免整屏被 null 占满）
+                        // 推理模型（DeepSeek-R1 等）的思考放在 reasoning_content，包成 ```thinking 块一起下发
+                        val reasoning = delta.optString("reasoning_content", "")
+                            .ifEmpty { delta.optString("reasoning", "") }
                         val content = delta.optString("content", "")
+                        if (reasoning.isNotEmpty() && reasoning != "null" && reasoning != "None") {
+                            if (!thinkOpen) {
+                                full.append("```thinking\n")
+                                thinkOpen = true
+                            }
+                            full.append(reasoning)
+                            onToken(reasoning)
+                        }
                         if (content.isNotEmpty() && content != "null" && content != "None") {
+                            if (thinkOpen) {
+                                full.append("\n```\n")
+                                thinkOpen = false
+                            }
                             full.append(content)
                             onToken(content)
                         }
@@ -180,6 +196,7 @@ class AiClient(
         } catch (e: Exception) {
             throw IOException("连接失败：${e.message}", e)
         }
+        if (thinkOpen) full.append("\n```\n")
         return full.toString()
     }
 

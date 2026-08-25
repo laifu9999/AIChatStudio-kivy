@@ -229,7 +229,8 @@ class AppState(app: Application) : AndroidViewModel(app) {
                 var shown = 0
                 var streamStart = 0
                 var inThinkPhase = false
-                while (streaming) {
+                // 循环不以 streaming 为退出条件：AI 整段返回时也要把内容逐字"吐完"再结束
+                while (true) {
                     val target = synchronized(buffer) { buffer.toString() }
                     if (showThink) {
                         streamStart = 0
@@ -266,6 +267,8 @@ class AppState(app: Application) : AndroidViewModel(app) {
                         shown = (shown + step).coerceAtMost(displayable.length)
                         streamBubble.content = displayable.substring(0, shown) + "▌"
                         messages = s.messages.toList()
+                    } else if (!streaming) {
+                        break
                     }
                     kotlinx.coroutines.delay(28)
                 }
