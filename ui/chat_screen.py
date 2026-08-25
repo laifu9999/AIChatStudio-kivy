@@ -138,13 +138,15 @@ KV = """
     FloatLayout:  # 消息区 + 悬浮回顶/回底
         ScrollView:
             id: scroll
+            size_hint: 1, 1
+            pos_hint: {'x': 0, 'y': 0}
             bar_width: dp(6)
             scroll_type: ['bars', 'content']
             GridLayout:
                 id: bubbles
                 cols: 1
-                spacing: dp(8)
-                padding: dp(8), 0, dp(8), dp(4)
+                spacing: dp(6)
+                padding: 0, 0, 0, 0
                 size_hint_y: None
                 height: self.minimum_height
         BoxLayout:  # 悬浮在右下角的回顶/回底
@@ -223,14 +225,14 @@ class ChatBubble(BoxLayout):
         super().__init__(**kw)
         self.orientation = "vertical"
         self.size_hint_y = None
-        self.padding = dp(2)
+        self.padding = 0
         self.role = role
         # 背景圆角卡片
         with self.canvas.before:
             Color(rgba=theme.RC('user_bubble') if role == "user" else theme.RC('ai_bubble'))
-            self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
+            self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(6)])
         self.bind(pos=self._upd, size=self._upd)
-        inner = BoxLayout(orientation="horizontal", padding=(dp(10), dp(6), dp(10), dp(6)), spacing=dp(6))
+        inner = BoxLayout(orientation="horizontal", padding=(dp(8), dp(2), dp(8), dp(2)), spacing=dp(4))
         self.label = Label(
             text=text, color=theme.RC('text'), font_size=theme.fs(16),
             size_hint_y=None, text_size=(Window.width - dp(80), None),
