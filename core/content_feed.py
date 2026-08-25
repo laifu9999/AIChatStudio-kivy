@@ -219,9 +219,11 @@ class ContentFeedManager:
         self.show_feed = True  # 投喂内容实时显示
         self.show_status = True  # 投喂状态显示
         self.monitor_interval = 2.0  # 文件监测间隔（秒）
-        # 双文字投喂：first_text 仅首次注入一次；repeat_text 之后每次都注入
+        # 双文字投喂：first_text 仅每个会话首次注入一次；repeat_text 之后每次都注入
         self.first_text = ""
         self.repeat_text = ""
+        # 指定文件投喂（无限次，每轮都注入）：文件绝对路径列表
+        self.feed_files = []
         self._text_feed_idx = 0  # 0=尚未使用，>=1 表示首条已用
         # 连续自动回复：开启后 AI 自动续回最多 max_rounds 次（1-300），每次先注入投喂内容
         self.auto_continue = False
@@ -244,6 +246,7 @@ class ContentFeedManager:
         self.monitor_interval = s.get("monitor_interval", 2.0)
         self.first_text = s.get("first_text", "") or ""
         self.repeat_text = s.get("repeat_text", "") or ""
+        self.feed_files = s.get("feed_files", []) or []
         self.auto_continue = bool(s.get("auto_continue", False))
         try:
             self.max_rounds = max(1, min(int(s.get("max_rounds", 10)), 300))
@@ -260,6 +263,7 @@ class ContentFeedManager:
             "monitor_interval": self.monitor_interval,
             "first_text": self.first_text,
             "repeat_text": self.repeat_text,
+            "feed_files": self.feed_files,
             "auto_continue": self.auto_continue,
             "max_rounds": self.max_rounds,
         }
@@ -335,54 +339,90 @@ class ContentFeedManager:
                 return self.first_text
             return self.repeat_text
 
+    def _consume_text_feed_status(self):
+        """同 _consume_text_feed，但返回 (label, text) 以便上报状态。"""
+        with self._lock:
+            if self._text_feed_idx == 0 and self.first_text.strip():
+                self._text_feed_idx = 1
+                return "每个会话一次投喂", self.first_text
+            return "重复投喂(无限次)", self.repeat_text
+
     def reset_text_feed(self):
-        """重置双文字投喂序号（新会话 / 新一轮连续回复开始时调用），
-        使 first_text 再次只触发一次。"""
+        """重置双文字投喂序号（新会话开始时调用），
+        使 first_text 在每个会话只触发一次。"""
         with self._lock:
             self._text_feed_idx = 0
 
-    def _read_feed_items(self):
-        """读取当前所有 enabled 投喂项的内容 + 双文字投喂。返回拼接后的文本块。"""
+    def _read_feed_items_status(self):
+        """读取所有 enabled 投喂项 + 指定文件，返回 (blocks_text, status_list)。
+
+        status_list: [(label, ok:bool, detail:str), ...] 供 UI 实时显示投喂成功/失败。
+        """
         blocks = []
+        status = []
         with self._lock:
             items = list(self.items)
         for it in items:
             if not it.enabled:
                 continue
-            c = it.read_content()
-            if c.strip():
-                if it.kind == "text":
+            label = ("文字投喂" if it.kind == "text" else "文件:" + os.path.basename(it.path or ""))
+            if it.kind == "text":
+                c = it.content or ""
+                if c.strip():
                     blocks.append(f"=== 投喂文字 ===\n{c}")
+                    status.append((label, True, f"{len(c)}字"))
                 else:
-                    blocks.append(f"=== 投喂文件：{os.path.basename(it.path)} ===\n{c}")
+                    status.append((label, False, "内容为空"))
+            else:
+                if it.path and os.path.isfile(it.path):
+                    c, _ = _read_text_file(it.path)
+                    if c.strip():
+                        blocks.append(f"=== 投喂文件：{os.path.basename(it.path)} ===\n{c}")
+                        status.append((label, True, f"{len(c)}字"))
+                    else:
+                        status.append((label, False, "文件为空/读取失败"))
+                else:
+                    status.append((label, False, "文件不存在"))
+        # 指定文件投喂（无限次，每轮都注入）
+        for p in (self.feed_files or []):
+            label = "投喂文件:" + os.path.basename(p or "")
+            if p and os.path.isfile(p):
+                c, _ = _read_text_file(p)
+                if c.strip():
+                    blocks.append(f"=== 投喂文件：{os.path.basename(p)} ===\n{c}")
+                    status.append((label, True, f"{len(c)}字"))
+                else:
+                    status.append((label, False, "文件为空"))
+            else:
+                status.append((label, False, "文件不存在"))
         # 双文字投喂（消耗一次序号）
-        tf = self._consume_text_feed()
+        tf_label, tf = self._consume_text_feed_status()
         if tf.strip():
             blocks.append(f"=== 投喂文字（指令）===\n{tf}")
-        return "\n\n".join(blocks)
+            status.append((tf_label, True, f"{len(tf)}字"))
+        return "\n\n".join(blocks), status
 
     def build_context(self, purpose="chat"):
-        """构建应注入到 AI 消息中的上下文文本。
+        """构建应注入到 AI 消息中的上下文文本（兼容旧调用）。"""
+        ctx, has, _ = self.build_context_with_status(purpose)
+        return ctx, has
 
-        投喂内容（文字 + 文件）在任何模式下都会自动注入——这是"投喂"的本意。
-        purpose 仅决定注入位置与优先级：
-          - "chat"：作为对话前置上下文（在首条 user 消息之前），AI 回复时会一并参考。
-          - "think"：作为最高优先级 system 前置块（标注"请先阅读再思考/回复"），
-            实现"AI 在思考/回复每个内容前，先读取投喂内容与参考文件"。
+    def build_context_with_status(self, purpose="chat"):
+        """构建上下文，并返回 (context_text, has_content, status_list)。
 
-        thinking_read_first 开关含义：
-          True  → 用 think 方式（最高优先级、思考前先读）；
-          False → 用 chat 方式（前置上下文，但不强制"先读"）。
-
-        返回 (context_text, has_content:bool)
+        status_list: [(label, ok:bool, detail:str), ...] 供 UI 实时显示投喂成功/失败。
         """
+        status = []
         if not self.enabled:
-            return "", False
+            status.append(("投喂总开关", False, "已关闭"))
+            return "", False, status
         prepend = self._read_prepend_files()
-        feed = self._read_feed_items()
+        feed, feed_status = self._read_feed_items_status()
+        status.extend(feed_status)
         has = bool(prepend.strip() or feed.strip())
         if not has:
-            return "", False
+            status.append(("投喂内容", False, "无可投喂内容"))
+            return "", False, status
 
         if self.thinking_read_first:
             # 思考前先读：最高优先级 system 前置块
@@ -391,7 +431,8 @@ class ContentFeedManager:
                 parts.append("[投喂内容-请先阅读后再思考与回复]\n" + feed)
             if prepend.strip():
                 parts.append("[参考文件-请先阅读后再思考与回复]\n" + prepend)
-            return "\n\n".join(parts), True
+            status.append(("上下文构建", True, "已注入"))
+            return "\n\n".join(parts), True, status
 
         # chat 前置上下文（不强制先读，但投喂内容仍自动注入）
         parts = []
@@ -399,7 +440,8 @@ class ContentFeedManager:
             parts.append("[投喂内容-前置上下文]\n" + feed)
         if prepend.strip():
             parts.append("[参考文件-前置上下文]\n" + prepend)
-        return "\n\n".join(parts), True
+        status.append(("上下文构建", True, "已注入"))
+        return "\n\n".join(parts), True, status
 
     # ---------------- 监测线程控制 ----------------
     def start_monitor(self, on_change=None, on_error=None):

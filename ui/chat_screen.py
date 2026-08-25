@@ -3,6 +3,7 @@
 聊天气泡、流式回复、发送、会话管理、自动执行文件/命令块、显示折叠。"""
 import os
 import re
+import random
 import threading
 import time
 from kivy.clock import Clock, mainthread
@@ -112,6 +113,24 @@ KV = """
             color: theme.RC('text')
             font_size: fs(13)
             on_press: root.open_project_files()
+    BoxLayout:  # 投喂 / 续章实时状态条
+        size_hint_y: None
+        height: dp(20)
+        padding: dp(6), 0
+        canvas.before:
+            Color:
+                rgba: theme.RC('panel')
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        Label:
+            id: feed_status
+            text: ''
+            color: theme.RC('accent')
+            font_size: fs(11)
+            halign: 'left'
+            text_size: self.size
+            valign: 'middle'
     FloatLayout:  # 消息区 + 悬浮回顶/回底
         ScrollView:
             id: scroll
@@ -255,6 +274,13 @@ class ChatScreen(BoxLayout):
         self._stop = False
         self._client = None
         self._build_done = False
+        # 常驻投喂管理器：跨多次发送保留“每个会话一次投喂”的序号状态
+        self.feed_mgr = content_feed.ContentFeedManager()
+        # 自动续章状态
+        self._auto_active = False
+        self._auto_round = 0
+        self._auto_total = 0
+        self._auto_token = 0  # 守卫：每次新发送自增，避免等待期间重复触发
 
     # ---- 由 main.py 在 add_widget 后调用 ----
     def on_parent(self, *a):
@@ -297,6 +323,9 @@ class ChatScreen(BoxLayout):
 
     def select_session(self, sid):
         self.current_sid = sid
+        # 切换会话：重置“每个会话一次投喂”序号，使新会话重新触发首次投喂
+        self.feed_mgr.reset_text_feed()
+        self._auto_active = False
         self.ids.bubbles.clear_widgets()
         msgs = session_mod.get_messages(sid)
         for m in msgs:
@@ -308,6 +337,8 @@ class ChatScreen(BoxLayout):
         session_mod.delete_session(sid)
         if sid == self.current_sid:
             self.current_sid = None
+            self.feed_mgr.reset_text_feed()
+            self._auto_active = False
             self.ids.bubbles.clear_widgets()
             self._new_or_last_session()
 
@@ -364,14 +395,34 @@ class ChatScreen(BoxLayout):
         self.ids.inp.text = ""
         if not self.current_sid:
             self.new_session(silent=True)
+        # 读取自动续章开关
+        feed_cfg = settings_mod.load_settings().get("feed", {})
+        auto_on = bool(feed_cfg.get("auto_continue", False))
+        self._auto_active = auto_on
+        self._auto_round = 1
+        self._auto_token += 1
+        try:
+            self._auto_total = max(1, min(int(feed_cfg.get("max_rounds", 1)), 300)) if auto_on else 1
+        except Exception:
+            self._auto_total = 1
         self._add_bubble("user", text)
         session_mod.append_message(self.current_sid, "user", text)
-        self._run_chat(text)
+        if auto_on:
+            self.set_feed_status(f"自动续章已开启：共 {self._auto_total} 章")
+        self._run_chat(text, auto=auto_on)
 
     def stop_reply(self):
         self._stop = True
+        self._auto_active = False
+        self.set_feed_status("已停止")
 
-    def _run_chat(self, user_text):
+    def set_feed_status(self, text):
+        try:
+            self.ids.feed_status.text = text
+        except Exception:
+            pass
+
+    def _run_chat(self, user_text, auto=False):
         if not self._client:
             self._add_bubble("ai", "尚未配置 AI。请点右上角 设置 填写提供商 API Key 与模型。")
             return
@@ -401,19 +452,56 @@ class ChatScreen(BoxLayout):
         t.start()
 
     def _inject_feed(self, msgs):
-        """若投喂已开启，把投喂上下文作为 system 消息前置注入。"""
+        """若投喂已开启，把投喂上下文作为 system 消息前置注入，并实时回报状态。"""
         try:
             s = settings_mod.load_settings()
             if not s.get("feed", {}).get("enabled"):
+                self.set_feed_status("投喂：关闭")
                 return msgs
-            mgr = content_feed.ContentFeedManager()
-            mgr.apply_settings(s.get("feed", {}))
-            ctx, has = mgr.build_context(purpose="chat")
+            # 复用常驻管理器，仅刷新开关/文件（保留“每个会话一次”的序号）
+            self.feed_mgr.apply_settings(s.get("feed", {}))
+            ctx, has, status = self.feed_mgr.build_context_with_status(purpose="chat")
+            # 实时显示投喂成功/失败
+            ok_items = [f"{lbl}成功" for lbl, ok, _ in status if ok]
+            fail_items = [f"{lbl}失败({d})" for lbl, ok, d in status if not ok]
+            if ok_items or fail_items:
+                parts = []
+                if ok_items:
+                    parts.append("投喂成功:" + "/".join(ok_items))
+                if fail_items:
+                    parts.append("投喂失败:" + "/".join(fail_items))
+                self.set_feed_status(" | ".join(parts))
             if has:
                 msgs = [{"role": "system", "content": ctx}] + msgs
-        except Exception:
-            pass
+        except Exception as e:
+            self.set_feed_status(f"投喂异常：{e}")
         return msgs
+
+    # ---- 自动续章 ----
+    def _maybe_auto_continue(self):
+        """一轮回复完成后，判断是否继续自动续章。"""
+        if not self._auto_active or self._stop:
+            return
+        if self._auto_round >= self._auto_total:
+            self._auto_active = False
+            self.set_feed_status(f"续章完成：共 {self._auto_total} 章")
+            return
+        wait = random.uniform(3, 6)
+        self.set_feed_status(
+            f"续章中 第 {self._auto_round + 1}/{self._auto_total} 章，等待 {wait:.1f} 秒…")
+        tok = self._auto_token
+        Clock.schedule_once(lambda dt: self._auto_next(dt, tok), wait)
+
+    def _auto_next(self, dt, tok=None):
+        if tok is not None and tok != self._auto_token:
+            return  # 等待期间用户又发了新消息，放弃本次续章
+        if self._stop or not self._auto_active:
+            return
+        self._auto_round += 1
+        cont = f"（自动续章）请继续创作第 {self._auto_round} 章，保持文风与剧情连贯。"
+        self._add_bubble("user", cont)
+        session_mod.append_message(self.current_sid, "user", cont)
+        self._run_chat(cont, auto=True)
 
     def _build_messages(self, user_text):
         # 历史（去掉思考与代码块，保留纯对话）
@@ -443,6 +531,9 @@ class ChatScreen(BoxLayout):
         # 自动执行文件/命令块
         if self.auto_exec and not self._stop:
             self._maybe_exec_commands(full)
+        # 自动续章：本轮完成后判断是否继续
+        if not self._stop:
+            self._maybe_auto_continue()
 
     # ---- 文件/命令自动执行（跨平台核心） ----
     def _maybe_exec_commands(self, text):

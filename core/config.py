@@ -92,6 +92,7 @@ DEFAULT_SETTINGS = {
         "monitor_interval": 2.0,
         "first_text": "",
         "repeat_text": "",
+        "feed_files": [],
         "auto_continue": False,
         "max_rounds": 10,
     },
