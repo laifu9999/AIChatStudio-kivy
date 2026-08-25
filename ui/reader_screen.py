@@ -401,7 +401,7 @@ class ReaderScreen(BoxLayout):
             self.ids.editor.opacity = 1
             self.ids.editor.disabled = False
             self.ids.btn_edit.text = "保存"
-            Clock.schedule_once(lambda dt: self.ids.editor.focus(True), 0.1)
+            Clock.schedule_once(lambda dt: setattr(self.ids.editor, 'focus', True), 0.1)
         else:
             self.save_edit()
 

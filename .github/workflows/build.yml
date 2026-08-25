@@ -58,10 +58,10 @@ jobs:
         with:
           path: |
             ~/.buildozer
-          # -v2：上一版缓存里含在 ubuntu-24.04 上编译失败的 libffi，必须换新 key 强制重建
-          key: ${{ runner.os }}-buildozer-v2-${{ hashFiles('buildozer.spec') }}
+          # -v3：上一版缓存已含 Python 3.14 的半成品构建，必须换新 key 强制用 Python 3.11.10 重建
+          key: ${{ runner.os }}-buildozer-v3-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            ${{ runner.os }}-buildozer-v2-
+            ${{ runner.os }}-buildozer-v3-
 
       - name: 构建 APK（debug）
         # pipefail：确保 buildozer 真实报错能中断步骤、被准确报告（之前用 tee 掩盖了退出码）

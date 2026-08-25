@@ -40,8 +40,8 @@ KV = """
             size: self.size
     BoxLayout:  # 顶栏：会话 / 状态 / 阅读 / 投喂 / 工具 / 设置
         size_hint_y: None
-        height: dp(48)
-        padding: dp(4)
+        height: dp(42)
+        padding: dp(4), 0
         spacing: dp(3)
         canvas.before:
             Color:
@@ -113,9 +113,10 @@ KV = """
             color: theme.RC('text')
             font_size: fs(13)
             on_press: root.open_project_files()
-    BoxLayout:  # 投喂 / 续章实时状态条
+    BoxLayout:  # 投喂 / 续章实时状态条（空时自动折叠，不浪费顶部空间）
+        id: feed_bar
         size_hint_y: None
-        height: dp(20)
+        height: 0
         padding: dp(6), 0
         canvas.before:
             Color:
@@ -140,7 +141,7 @@ KV = """
                 id: bubbles
                 cols: 1
                 spacing: dp(8)
-                padding: dp(10)
+                padding: dp(10), dp(4), dp(10), dp(10)
                 size_hint_y: None
                 height: self.minimum_height
         BoxLayout:  # 悬浮在右下角的回顶/回底
@@ -164,8 +165,8 @@ KV = """
                 on_press: root.scroll_to_bottom()
     BoxLayout:
         size_hint_y: None
-        height: dp(110)
-        padding: dp(6)
+        height: dp(84)
+        padding: dp(4), dp(5)
         spacing: dp(6)
         canvas.before:
             Color:
@@ -180,7 +181,7 @@ KV = """
             foreground_color: theme.RC('text')
             hint_text_color: theme.RC('text_dim')
             font_size: fs(15)
-            padding: dp(10), dp(10)
+            padding: dp(8), dp(8)
             on_text_validate: root.do_send()
         BoxLayout:
             orientation: 'vertical'
@@ -419,6 +420,13 @@ class ChatScreen(BoxLayout):
     def set_feed_status(self, text):
         try:
             self.ids.feed_status.text = text
+            bar = self.ids.feed_bar
+            if text:
+                bar.height = dp(20)
+                bar.opacity = 1
+            else:
+                bar.height = 0
+                bar.opacity = 0
         except Exception:
             pass
 
