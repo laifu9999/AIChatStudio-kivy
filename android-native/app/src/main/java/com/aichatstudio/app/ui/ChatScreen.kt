@@ -1,6 +1,5 @@
 package com.aichatstudio.app.ui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -148,13 +147,11 @@ fun ChatScreen(
             }
 
             // 回顶/回底小箭头：默认隐藏，快速滑动时出现
-            AnimatedVisibility(
-                visible = showArrows.value,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-            ) {
+            if (showArrows.value) {
                 Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
