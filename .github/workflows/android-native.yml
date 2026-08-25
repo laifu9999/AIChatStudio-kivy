@@ -30,8 +30,11 @@ jobs:
           gradle-version: '8.9'
 
       - name: 构建 debug APK
+        # pipefail：之前 `| tail -60` 吞掉了 gradle 的真实退出码，编译失败被掩盖成 success，
+        # APK 自然没生成，上传步骤才报 No files found。改用 tee 保存完整日志 + pipefail。
         run: |
-          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tail -60
+          set -eo pipefail
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee gradle_build.log
 
       - name: 上传 APK
         uses: actions/upload-artifact@v4
@@ -39,3 +42,11 @@ jobs:
           name: AIChatStudio-native-apk
           path: android-native/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      - name: 上传 gradle 日志（失败时排查用）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-log
+          path: gradle_build.log
+          if-no-files-found: ignore
