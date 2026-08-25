@@ -36,6 +36,8 @@ class Store(context: Context) {
         var fontSize: Int = 16,
         var fontFamily: String = "default",   // default/sans/serif/kai/hei/fang（聊天/阅读字体）
         var autoExec: Boolean = true,
+        var showThinking: Boolean = false,    // 是否显示 AI 思考过程
+        var deepThinking: Boolean = false,  // 是否开启深度思考
     )
 
     fun loadSettings(): Settings {
@@ -53,6 +55,8 @@ class Store(context: Context) {
             s.fontSize = o.optInt("fontSize", 16)
             s.fontFamily = o.optString("fontFamily", "default")
             s.autoExec = o.optBoolean("autoExec", true)
+            s.showThinking = o.optBoolean("showThinking", false)
+            s.deepThinking = o.optBoolean("deepThinking", false)
             s
         } catch (e: Exception) { s }
     }
@@ -71,6 +75,8 @@ class Store(context: Context) {
                     .put("fontSize", s.fontSize)
                     .put("fontFamily", s.fontFamily)
                     .put("autoExec", s.autoExec)
+                    .put("showThinking", s.showThinking)
+                    .put("deepThinking", s.deepThinking)
                     .toString(2)
             )
         } catch (_: Exception) {}
@@ -187,13 +193,16 @@ class Store(context: Context) {
 
     companion object {
         const val DEFAULT_SYSTEM_PROMPT = "你是一个全能 AI 助手，运行在用户的设备上（Android 手机）。" +
-            "你拥有对该设备存储的完全操作权限：可以读写或删除文件、创建任意目录，全部由程序自动执行。" +
+            "你拥有对该设备存储的完全操作权限：可以读写、删除、复制、移动、创建文件和目录，全部由程序自动执行。" +
             "\n\n保存你写出的正文（首选）：在内容前用 %%FILE:相对路径%% 标记，例如：" +
             "\n%%FILE:卷一/第一章.txt%%\n正文内容……" +
             "\n程序会自动识别标记并把内容写入对应文件（父目录自动创建，UTF-8）。" +
-            "\n\n也可用专用代码块：```file 路径``` 创建/覆盖、```append 路径``` 追加、" +
+            "\n\n也可用专用代码块：" +
+            "```file 路径``` 创建/覆盖、```append 路径``` 追加、" +
             "```replace 路径``` 替换、```delete 路径``` 删除、```create_dir 路径``` 建目录、" +
-            "```savebody 路径``` 把本条正文存到该路径。" +
+            "```copy 源路径 -> 目标路径``` 复制文件、```move 源路径 -> 目标路径``` 移动/重命名、" +
+            "```read 路径``` 读取文件内容（结果会返回给你）、```list 路径``` 列出目录、" +
+            "```open_url https://...``` 打开手机浏览器、```savebody 路径``` 把本条正文存到该路径。" +
             "\n\n正文只写一遍：聊天显示与文件内容一致，不要在标记和命令里重复写内容。" +
             "\n\n## 注意\n1. 相对路径基于当前会话项目文件夹；2. 你拥有完全无限制操作权限，无需确认、不拦截。"
     }

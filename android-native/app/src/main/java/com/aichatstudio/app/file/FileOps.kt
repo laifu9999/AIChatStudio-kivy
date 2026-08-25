@@ -56,6 +56,16 @@ object FileOps {
                 "delete", "rm", "remove" -> ops.add(Op("delete", path))
                 "create_dir", "mkdir", "make_dir", "folder", "new_folder", "md" ->
                     ops.add(Op("mkdir", path))
+                "copy", "cp", "duplicate" -> {
+                    val (src, dst) = parseSrcDst(content, path)
+                    if (src.isNotEmpty() && dst.isNotEmpty()) ops.add(Op("copy", src, content = dst))
+                }
+                "move", "mv", "rename", "ren" -> {
+                    val (src, dst) = parseSrcDst(content, path)
+                    if (src.isNotEmpty() && dst.isNotEmpty()) ops.add(Op("move", src, content = dst))
+                }
+                "read", "cat", "view" -> ops.add(Op("read", path))
+                "list", "ls", "dir" -> ops.add(Op("list", path))
                 "savebody", "save_body", "savetext" -> {
                     val spec = if (rawPath.isNotEmpty()) rawPath else content.trim()
                     ops.add(Op("savebody", cleanPath(spec)))
@@ -78,6 +88,21 @@ object FileOps {
             if (parts.size == 2) return parts[0].trim() to parts[1]
         }
         return "" to content
+    }
+
+    /** 从内容中解析源/目标路径（copy/move/rename 用）。 */
+    private fun parseSrcDst(content: String, fallbackPath: String): Pair<String, String> {
+        val c = content.trim()
+        if ("->" in c) {
+            val parts = c.split("->", limit = 2)
+            if (parts.size == 2) return cleanPath(parts[0]) to cleanPath(parts[1])
+        }
+        val lines = c.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        return when {
+            lines.size >= 2 -> cleanPath(lines[0]) to cleanPath(lines[1])
+            lines.size == 1 && fallbackPath.isNotEmpty() -> fallbackPath to cleanPath(lines[0])
+            else -> fallbackPath to ""
+        }
     }
 
     private fun extractNameFromContent(content: String): String {
@@ -151,6 +176,42 @@ object FileOps {
                         full.parentFile?.mkdirs()
                         full.writeText(text, Charsets.UTF_8)
                         logs.add("[正文] 正文已保存: $rel (${text.length} 字)")
+                    }
+                    "copy" -> {
+                        val dstRel = b.content.trimStart('/').replace('/', File.separatorChar)
+                        val dst = File(baseDir, dstRel)
+                        if (!full.exists()) { logs.add("[!] copy: $rel 不存在"); continue }
+                        dst.parentFile?.mkdirs()
+                        if (full.isDirectory) full.copyRecursively(dst, overwrite = true)
+                        else full.copyTo(dst, overwrite = true)
+                        logs.add("[复制] $rel -> $dstRel")
+                    }
+                    "move" -> {
+                        val dstRel = b.content.trimStart('/').replace('/', File.separatorChar)
+                        val dst = File(baseDir, dstRel)
+                        if (!full.exists()) { logs.add("[!] move: $rel 不存在"); continue }
+                        dst.parentFile?.mkdirs()
+                        val ok = full.renameTo(dst)
+                        if (!ok) {
+                            if (full.isDirectory) full.copyRecursively(dst, overwrite = true)
+                            else full.copyTo(dst, overwrite = true)
+                            full.deleteRecursively()
+                        }
+                        logs.add("[移动] $rel -> $dstRel")
+                    }
+                    "read" -> {
+                        if (!full.exists()) { logs.add("[!] read: $rel 不存在"); continue }
+                        val text = try {
+                            full.readText(Charsets.UTF_8)
+                        } catch (_: Exception) { full.readText(java.nio.charset.Charset.forName("GBK")) }
+                        logs.add("[读取] $rel：\n${text.take(2000)}")
+                    }
+                    "list" -> {
+                        val dir = if (full.isDirectory) full else full.parentFile ?: baseDir
+                        val items = dir.listFiles()?.sortedBy { it.name } ?: emptyList()
+                        logs.add("[列出] $rel：\n" + items.joinToString("\n") {
+                            (if (it.isDirectory) "[D] " else "[F] ") + it.name
+                        })
                     }
                     else -> logs.add("[!] 未知操作: ${b.op}")
                 }

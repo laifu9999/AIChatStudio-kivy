@@ -203,6 +203,24 @@ fun SettingsScreen(state: AppState, onBack: () -> Unit) {
                 )
             }
 
+            // 显示 AI 思考过程
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("显示 AI 思考过程", color = pal.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Switch(
+                    checked = state.settings.showThinking,
+                    onCheckedChange = { state.settings = state.settings.copy(showThinking = it) },
+                )
+            }
+
+            // 开启深度思考
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("开启深度思考", color = pal.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Switch(
+                    checked = state.settings.deepThinking,
+                    onCheckedChange = { state.settings = state.settings.copy(deepThinking = it) },
+                )
+            }
+
             // 保存
             Button(
                 onClick = { state.saveSettings(); status = "[OK] 已保存" },

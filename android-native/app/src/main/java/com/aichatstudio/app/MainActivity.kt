@@ -1,8 +1,13 @@
 package com.aichatstudio.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -37,14 +42,35 @@ class MainActivity : ComponentActivity() {
                 ActivityResultContracts.RequestMultiplePermissions()
             ) {}
             LaunchedEffect(Unit) {
-                val needed = listOf(
-                    Manifest.permission.READ_EXTERNAL_STORAGE,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                )
+                val needed = mutableListOf<String>().apply {
+                    add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                        add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        add(Manifest.permission.READ_MEDIA_IMAGES)
+                        add(Manifest.permission.READ_MEDIA_VIDEO)
+                        add(Manifest.permission.READ_MEDIA_AUDIO)
+                    }
+                }
                 val missing = needed.filter {
                     ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
                 }
                 if (missing.isNotEmpty()) permLauncher.launch(missing.toTypedArray())
+
+                // Android 11+「所有文件访问」：必须跳转到系统设置授权
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                    !Environment.isExternalStorageManager()
+                ) {
+                    try {
+                        val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                        intent.data = Uri.parse("package:$packageName")
+                        startActivity(intent)
+                    } catch (_: Exception) {
+                        val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                        startActivity(intent)
+                    }
+                }
             }
 
             MaterialTheme(colorScheme = lightColorScheme()) {

@@ -14,6 +14,7 @@ import com.aichatstudio.app.data.Providers
 import com.aichatstudio.app.data.Session
 import com.aichatstudio.app.data.Store
 import com.aichatstudio.app.file.FileOps
+import com.aichatstudio.app.phone.PhoneOps
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -59,7 +60,9 @@ class AppState(app: Application) : AndroidViewModel(app) {
                 apiKey = settings.apiKey,
                 model = settings.model,
                 baseUrlOverride = settings.baseUrl.takeIf { it.isNotBlank() },
-                systemPrompt = settings.systemPrompt,
+                systemPrompt = if (settings.deepThinking) {
+                    settings.systemPrompt + "\n\n[深度思考已开启] 请在最终回答前先进行充分推理，并把推理过程放在 ```thinking 与 ``` 之间。"
+                } else settings.systemPrompt,
             )
         }
     }
@@ -241,7 +244,13 @@ class AppState(app: Application) : AndroidViewModel(app) {
                 current?.messages?.add(ChatMessage("assistant",
                     "[执行] 文件操作：\n" + logs.joinToString("\n")))
             }
-            current?.let { store.saveSession(it) }
+            val opened = PhoneOps.parseOpenUrls(getApplication<Application>(), reply)
+            if (opened.isNotEmpty()) {
+                feedStatus = "[手机] 已打开网页：${opened.size} 个"
+                current?.messages?.add(ChatMessage("assistant",
+                    "[手机] 已打开：\n" + opened.joinToString("\n")))
+                current?.let { store.saveSession(it) }
+            }
         } catch (e: Exception) {
             feedStatus = "自动执行出错：${e.message}"
         }
