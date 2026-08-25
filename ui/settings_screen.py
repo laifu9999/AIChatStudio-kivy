@@ -14,7 +14,7 @@ from kivy.graphics import Color, Rectangle
 from core import settings as settings_mod
 from core import ai_client
 from ui import theme
-from ui.theme import fs
+from ui.theme import fs, READING_STYLE_LABELS
 
 KV = """
 <SettingsScreen>:
@@ -123,6 +123,14 @@ class SettingsScreen(BoxLayout):
         self.theme_combo.bind(text=lambda inst, val: self._on_theme(val))
         self._row("主题", self.theme_combo)
 
+        # 阅读风格（聊天界面 / 阅读窗口）
+        self.read_style_combo = Spinner(
+            text=READING_STYLE_LABELS.get(self.settings["ui"].get("reading_style", "cream"), "米黄纸"),
+            values=list(READING_STYLE_LABELS.values()), size_hint_y=None, height=dp(42),
+            background_color=theme.C('panel2'), background_normal='', color=theme.C('text'))
+        self.read_style_combo.bind(text=lambda inst, val: self._on_read_style(val))
+        self._row("阅读风格（聊天/阅读窗口）", self.read_style_combo)
+
         # 字号
         self.font_spin = Spinner(text=str(self.settings["ui"].get("font_size", 16)),
                                  values=[str(x) for x in (12,14,16,18,20,22,24,28,32)],
@@ -157,6 +165,15 @@ class SettingsScreen(BoxLayout):
 
     def _on_theme(self, name):
         theme.set_theme(name)
+
+    def _on_read_style(self, label):
+        key = None
+        for k, v in READING_STYLE_LABELS.items():
+            if v == label:
+                key = k
+                break
+        if key:
+            theme.set_reading_style(key)
 
     def _fetch(self, *a):
         name = self.provider_combo.text
@@ -216,6 +233,14 @@ class SettingsScreen(BoxLayout):
             s["active_model"] = s["providers"][name]["model"]
         s.setdefault("ui", {})["theme"] = self.theme_combo.text
         s.setdefault("ui", {})["font_size"] = int(self.font_spin.text)
+        # 阅读风格：label -> key
+        rs_label = self.read_style_combo.text
+        rs_key = None
+        for k, v in READING_STYLE_LABELS.items():
+            if v == rs_label:
+                rs_key = k
+        if rs_key:
+            s.setdefault("ui", {})["reading_style"] = rs_key
         # 权限全部开启（与桌面版一致：默认最高权限、全自动）
         s["permissions"] = {
             "cmd": True, "automation": True, "browser": True,

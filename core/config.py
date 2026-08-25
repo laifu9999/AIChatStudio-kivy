@@ -64,6 +64,8 @@ DEFAULT_SETTINGS = {
         "window_w": 1100,
         "window_h": 720,
         "max_output_chars": 0,
+        "reading_style": "cream",   # 聊天/阅读窗口的阅读小说风格
+        "reader_font": 18,          # 阅读窗口正文字号（独立调节）
     },
     "permissions": {
         "cmd": True,           # 允许执行 Python / 命令代码块

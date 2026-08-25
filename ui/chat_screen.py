@@ -33,18 +33,18 @@ KV = """
     orientation: 'vertical'
     canvas.before:
         Color:
-            rgba: theme.C('bg')
+            rgba: theme.RC('bg')
         Rectangle:
             pos: self.pos
             size: self.size
-    BoxLayout:
+    BoxLayout:  # 顶栏：会话 / 状态 / 阅读 / 投喂 / 工具 / 设置
         size_hint_y: None
         height: dp(48)
         padding: dp(4)
-        spacing: dp(4)
+        spacing: dp(3)
         canvas.before:
             Color:
-                rgba: theme.C('panel')
+                rgba: theme.RC('panel')
             Rectangle:
                 pos: self.pos
                 size: self.size
@@ -52,58 +52,97 @@ KV = """
             id: btn_sessions
             text: '会话'
             size_hint_x: None
-            width: dp(58)
-            background_color: theme.C('panel2')
+            width: dp(50)
+            background_color: theme.RC('panel2')
             background_normal: ''
-            color: theme.C('text')
+            color: theme.RC('text')
             font_size: fs(13)
             on_press: root.open_sessions()
         Label:
             id: lbl_status
             text: '未选择模型'
-            color: theme.C('text_dim')
-            font_size: fs(13)
+            color: theme.RC('text_dim')
+            font_size: fs(12)
             halign: 'left'
             text_size: self.size
             valign: 'middle'
+            size_hint_x: 1
+        Button:
+            text: '阅读'
+            size_hint_x: None
+            width: dp(50)
+            background_color: theme.RC('panel2')
+            background_normal: ''
+            color: theme.RC('text')
+            font_size: fs(13)
+            on_press: root.open_reader()
         Button:
             text: '投喂'
             size_hint_x: None
-            width: dp(58)
-            background_color: theme.C('panel2')
+            width: dp(50)
+            background_color: theme.RC('panel2')
             background_normal: ''
-            color: theme.C('text')
+            color: theme.RC('text')
             font_size: fs(13)
             on_press: root.open_feed()
         Button:
             text: '工具'
             size_hint_x: None
-            width: dp(58)
-            background_color: theme.C('panel2')
+            width: dp(50)
+            background_color: theme.RC('panel2')
             background_normal: ''
-            color: theme.C('text')
+            color: theme.RC('text')
             font_size: fs(13)
             on_press: root.open_tools()
         Button:
             text: '设置'
             size_hint_x: None
-            width: dp(58)
-            background_color: theme.C('panel2')
+            width: dp(50)
+            background_color: theme.RC('panel2')
             background_normal: ''
-            color: theme.C('text')
+            color: theme.RC('text')
             font_size: fs(13)
             on_press: root.open_settings()
-    ScrollView:
-        id: scroll
-        bar_width: dp(6)
-        scroll_type: ['bars']
-        GridLayout:
-            id: bubbles
-            cols: 1
-            spacing: dp(8)
-            padding: dp(8)
-            size_hint_y: None
-            height: self.minimum_height
+        Button:
+            text: '文件'
+            size_hint_x: None
+            width: dp(46)
+            background_color: theme.RC('panel2')
+            background_normal: ''
+            color: theme.RC('text')
+            font_size: fs(13)
+            on_press: root.open_project_files()
+    FloatLayout:  # 消息区 + 悬浮回顶/回底
+        ScrollView:
+            id: scroll
+            bar_width: dp(6)
+            scroll_type: ['bars', 'content']
+            GridLayout:
+                id: bubbles
+                cols: 1
+                spacing: dp(8)
+                padding: dp(10)
+                size_hint_y: None
+                height: self.minimum_height
+        BoxLayout:  # 悬浮在右下角的回顶/回底
+            size_hint: None, None
+            size: dp(96), dp(40)
+            pos_hint: {'right': 0.99, 'bottom': 0.02}
+            spacing: dp(4)
+            Button:
+                text: '回顶部'
+                background_color: theme.RC('accent')
+                background_normal: ''
+                color: (1,1,1,1)
+                font_size: fs(12)
+                on_press: root.scroll_to_top()
+            Button:
+                text: '回底部'
+                background_color: theme.RC('panel4')
+                background_normal: ''
+                color: theme.RC('text')
+                font_size: fs(12)
+                on_press: root.scroll_to_bottom()
     BoxLayout:
         size_hint_y: None
         height: dp(110)
@@ -111,16 +150,16 @@ KV = """
         spacing: dp(6)
         canvas.before:
             Color:
-                rgba: theme.C('panel')
+                rgba: theme.RC('panel')
             Rectangle:
                 pos: self.pos
                 size: self.size
         TextInput:
             id: inp
             hint_text: '输入消息，Enter 发送，Shift+Enter 换行'
-            background_color: theme.C('panel2')
-            foreground_color: theme.C('text')
-            hint_text_color: theme.C('text_dim')
+            background_color: theme.RC('panel2')
+            foreground_color: theme.RC('text')
+            hint_text_color: theme.RC('text_dim')
             font_size: fs(15)
             padding: dp(10), dp(10)
             on_text_validate: root.do_send()
@@ -132,7 +171,7 @@ KV = """
             Button:
                 id: btn_send
                 text: '发送'
-                background_color: theme.C('accent')
+                background_color: theme.RC('accent')
                 background_normal: ''
                 color: (1,1,1,1)
                 font_size: fs(15)
@@ -142,9 +181,9 @@ KV = """
                 text: '停止'
                 size_hint_y: None
                 height: dp(36)
-                background_color: theme.C('panel4')
+                background_color: theme.RC('panel4')
                 background_normal: ''
-                color: theme.C('text')
+                color: theme.RC('text')
                 font_size: fs(13)
                 disabled: True
                 on_press: root.stop_reply()
@@ -165,12 +204,12 @@ class ChatBubble(BoxLayout):
         self.role = role
         # 背景圆角卡片
         with self.canvas.before:
-            Color(rgba=theme.C('user_bubble') if role == "user" else theme.C('ai_bubble'))
+            Color(rgba=theme.RC('user_bubble') if role == "user" else theme.RC('ai_bubble'))
             self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
         self.bind(pos=self._upd, size=self._upd)
         inner = BoxLayout(orientation="horizontal", padding=dp(10), spacing=dp(6))
         self.label = Label(
-            text=text, color=theme.C('text'), font_size=theme.fs(16),
+            text=text, color=theme.RC('text'), font_size=theme.fs(16),
             size_hint_y=None, text_size=(Window.width - dp(80), None),
             valign="top", halign="left", markup=False,
         )
@@ -283,6 +322,25 @@ class ChatScreen(BoxLayout):
 
     def open_feed(self):
         self.app.go_feed()
+
+    def open_reader(self):
+        self.app.go_reader()
+
+    def open_project_files(self):
+        self.app.open_project_files()
+
+    # ---- 回顶部 / 回底部（平板/手机一键定位）----
+    def scroll_to_top(self, *a):
+        try:
+            self.ids.scroll.scroll_y = 1
+        except Exception:
+            pass
+
+    def scroll_to_bottom(self, *a):
+        try:
+            self.ids.scroll.scroll_y = 0
+        except Exception:
+            pass
 
     # ---- 气泡 ----
     def _add_bubble(self, role, text, streaming=False):

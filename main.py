@@ -52,12 +52,14 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.core.window import Window
+from kivy.clock import Clock
 from kivy.metrics import dp
 
 from ui.chat_screen import ChatScreen, KV as CHAT_KV
 from ui.settings_screen import SettingsScreen, KV as SETTINGS_KV
 from ui.tools_screen import ToolsScreen, KV as TOOLS_KV
 from ui.feed_screen import FeedScreen, KV as FEED_KV
+from ui.reader_screen import ReaderScreen, KV as READER_KV
 from ui import theme
 # fs() 既被注入到 KV 的 global_idmap（供 .kv 规则使用），这里也建一个 Python 层别名，
 # 避免 main.py 自身 Python 代码里误用未定义的裸 fs() 导致崩溃（此前 会话 抽屉因此闪退）。
@@ -71,18 +73,23 @@ _kivy_builder.global_idmap["theme"] = theme
 _kivy_builder.global_idmap["fs"] = theme.fs
 
 # 加载所有界面的 kv 规则
-for kv in (CHAT_KV, SETTINGS_KV, TOOLS_KV, FEED_KV):
+for kv in (CHAT_KV, SETTINGS_KV, TOOLS_KV, FEED_KV, READER_KV):
     Builder.load_string(kv)
 
 
 class AIChatStudioApp(App):
     def build(self):
         self.title = "AI Chat Studio"
-        # 按已保存设置应用字号（必须在构建界面之前，使首屏即用正确字号）
+        # 按已保存设置应用字号与阅读风格（必须在构建界面之前，使首屏即用正确样式）
         try:
-            theme.set_font_scale(settings_mod.load_settings().get("ui", {}).get("font_size", 16))
+            s = settings_mod.load_settings()
+            ui = s.get("ui", {})
+            theme.set_font_scale(ui.get("font_size", 16))
+            theme.set_reading_style(ui.get("reading_style", "cream"))
+            self.reader_font = ui.get("reader_font", 18)
         except Exception:
-            pass
+            self.reader_font = 18
+        self.reader_path = None
         self._apply_window_bg()
         self.sm = ScreenManager()
         self._build_screens()
@@ -101,8 +108,9 @@ class AIChatStudioApp(App):
         self.settings_screen = SettingsScreen(app=self)
         self.tools = ToolsScreen(app=self)
         self.feed = FeedScreen(app=self)
+        self.reader = ReaderScreen(app=self)
         for name, scr in (("chat", self.chat), ("settings", self.settings_screen),
-                          ("tools", self.tools), ("feed", self.feed)):
+                          ("tools", self.tools), ("feed", self.feed), ("reader", self.reader)):
             s = Screen(name=name)
             s.add_widget(scr)
             self.sm.add_widget(s)
@@ -121,6 +129,14 @@ class AIChatStudioApp(App):
 
     def go_feed(self):
         self.sm.current = "feed"
+
+    def go_reader(self):
+        self.sm.current = "reader"
+
+    def open_project_files(self):
+        """跳到阅读窗口并弹出当前会话的项目文件列表。"""
+        self.go_reader()
+        Clock.schedule_once(lambda dt: self.reader.open_project_files(), 0.05)
 
     # ---- 主题切换：重建各屏（会话内容会从磁盘重新载入，不丢失）----
     def apply_theme_to_all(self):
