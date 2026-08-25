@@ -99,6 +99,13 @@ for kv in (CHAT_KV, SETTINGS_KV, TOOLS_KV, FEED_KV, READER_KV):
 class AIChatStudioApp(App):
     def build(self):
         self.title = "AI Chat Studio"
+        # Android：延迟请求存储权限（等 Activity 就绪后再弹授权框）
+        try:
+            from core.config import ANDROID as _IS_ANDROID
+        except Exception:
+            _IS_ANDROID = False
+        if _IS_ANDROID:
+            Clock.schedule_once(lambda dt: self._android_init(), 1.2)
         # 按已保存设置应用字号与阅读风格（必须在构建界面之前，使首屏即用正确样式）
         try:
             s = settings_mod.load_settings()
@@ -117,6 +124,14 @@ class AIChatStudioApp(App):
     def _apply_window_bg(self):
         try:
             Window.clearcolor = theme.C("bg")
+        except Exception:
+            pass
+
+    def _android_init(self):
+        """Android 启动初始化：请求存储权限（全盘访问需用户在系统设置里手动开启）。"""
+        try:
+            from modules import android_ops
+            android_ops.request_permissions()
         except Exception:
             pass
 

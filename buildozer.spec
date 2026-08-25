@@ -23,7 +23,7 @@ source.main = main.py
 requirements = hostpython3==3.11.10,python3==3.11.10,kivy==2.3.0,plyer,requests
 
 # (str) 开发版本号
-version = 1.0.0
+version = 1.0.1
 
 # (str) 应用图标（可选，放在 assets/ 下；没有则用默认）
 # icon.filename = %(source.dir)s/assets/icon.png
@@ -33,8 +33,11 @@ version = 1.0.0
 orientation = portrait
 
 # (list) Android 权限
-# INTERNET 必需（调用 AI API）；存储权限用于把文件保存到本机可见目录
-android.permissions = INTERNET, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
+# INTERNET：调用 AI API；存储权限：读写手机文件（Android 6+ 运行时还会弹窗授权；
+# MANAGE_EXTERNAL_STORAGE 用于 Android 11+「所有文件访问」（需用户在系统设置手动开启）；
+# REQUEST_INSTALL_PACKAGES：允许安装 APK（debug 包本地安装用）。
+android.permissions = INTERNET, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, \
+    MANAGE_EXTERNAL_STORAGE, REQUEST_INSTALL_PACKAGES, VIBRATE, WAKE_LOCK
 android.api = 34
 android.minapi = 21
 android.ndk = 25b
@@ -49,6 +52,12 @@ p4a.branch = master
 
 # (bool) 为 SDK 工具关闭监控
 android.skip_scan_for_dynamic_symbols = True
+
+# Android 9+ 默认禁止明文 HTTP；开启后允许 http:// 接口（如本地 Ollama / 内网 API）
+android.extra_manifest_application_arguments = usesCleartextTraffic=true
+
+# (bool) 允许备份/恢复应用数据
+android.allow_backup = True
 
 [buildozer]
 

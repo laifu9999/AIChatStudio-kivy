@@ -88,7 +88,15 @@ class SettingsScreen(BoxLayout):
                                   background_color=theme.C('panel2'),
                                   foreground_color=theme.C('text'),
                                   size_hint_y=None, height=dp(42))
-        self._row("API Key", self.key_edit)
+        key_row = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(6))
+        self.key_edit.size_hint_x = 1
+        key_row.add_widget(self.key_edit)
+        paste_key = Button(text="粘贴", size_hint_x=None, width=dp(56),
+                           background_color=theme.C('accent'), background_normal='',
+                           color=(1, 1, 1, 1))
+        paste_key.bind(on_press=self._paste_key)
+        key_row.add_widget(paste_key)
+        self._row("API Key", key_row)
 
         self.url_edit = TextInput(hint_text="Base URL（可留空用默认值）",
                                   background_color=theme.C('panel2'),
@@ -157,6 +165,26 @@ class SettingsScreen(BoxLayout):
         # 初始化填充
         if self.settings.get("active_provider"):
             self._on_provider(self.settings["active_provider"])
+
+    def _paste_key(self, *a):
+        """从系统剪贴板粘贴 API Key（Android 长按粘贴菜单经常不弹，用按钮兜底）。"""
+        try:
+            from modules import android_ops
+            text = android_ops.paste_text()
+        except Exception:
+            text = ""
+        if not text:
+            try:
+                from kivy.core.clipboard import Clipboard
+                text = Clipboard.paste() or ""
+            except Exception:
+                text = ""
+        text = (text or "").strip()
+        if text:
+            self.key_edit.text = text
+            self.status_lbl.text = "已粘贴 API Key（保存设置后生效）"
+        else:
+            self.status_lbl.text = "剪贴板为空或读取失败"
 
     def _on_provider(self, name):
         self.provider_combo.text = name

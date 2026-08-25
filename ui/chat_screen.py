@@ -188,6 +188,15 @@ KV = """
             font_size: fs(15)
             padding: dp(8), dp(8)
             on_text_validate: root.do_send()
+        Button:
+            text: '粘贴'
+            size_hint_x: None
+            width: dp(48)
+            background_color: theme.RC('panel4')
+            background_normal: ''
+            color: theme.RC('text')
+            font_size: fs(13)
+            on_press: root.paste_to_input()
         BoxLayout:
             orientation: 'vertical'
             size_hint_x: None
@@ -311,12 +320,20 @@ class ChatScreen(BoxLayout):
             self._client = None
             return
         p = provs[prov]
+        system_prompt = self.settings.get("agent_system_prompt", "")
+        # Android：把手机能力说明注入系统提示词，AI 才知道可以用 phone 打开应用/文件/剪贴板
+        if config.ANDROID:
+            try:
+                from modules import android_ops
+                system_prompt += "\n\n" + android_ops.summary()
+            except Exception:
+                pass
         self._client = ai_client.ChatClient(
             provider_name=prov,
             api_key=p.get("api_key", ""),
             model=p.get("model", "") or ai_client.default_model_for(prov),
             base_url=p.get("base_url", ""),
-            system_prompt=self.settings.get("agent_system_prompt", ""),
+            system_prompt=system_prompt,
         )
         self.ids.lbl_status.text = f"{prov} · {p.get('model','')}"
 
@@ -421,6 +438,26 @@ class ChatScreen(BoxLayout):
         self._stop = True
         self._auto_active = False
         self.set_feed_status("已停止")
+
+    def paste_to_input(self, *a):
+        """把系统剪贴板内容粘贴到输入框（Android 长按粘贴不灵，用按钮兜底）。"""
+        text = ""
+        try:
+            from modules import android_ops
+            text = android_ops.paste_text()
+        except Exception:
+            pass
+        if not text:
+            try:
+                from kivy.core.clipboard import Clipboard
+                text = Clipboard.paste() or ""
+            except Exception:
+                pass
+        text = (text or "").strip()
+        if text:
+            self.ids.inp.text = text
+        else:
+            self.set_feed_status("剪贴板为空或读取失败")
 
     def set_feed_status(self, text):
         try:
