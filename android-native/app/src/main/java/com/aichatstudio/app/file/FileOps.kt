@@ -44,28 +44,46 @@ object FileOps {
             val rawPath = (m.groupValues[2].ifEmpty { m.groupValues[3] }.ifEmpty { m.groupValues[4] }).trim()
             val content = m.groupValues[5]
             val path = if (rawPath.isNotEmpty()) cleanPath(rawPath) else extractNameFromContent(content)
-            if (path.isEmpty()) continue
             when (lang) {
-                "file", "create_file", "write", "new_file", "create", "overwrite", "save", "touch" ->
+                "file", "create_file", "write", "new_file", "create", "overwrite", "save", "touch" -> {
+                    if (path.isEmpty()) continue
                     ops.add(Op("write", path, content))
-                "append", "concat" -> ops.add(Op("append", path, content))
+                }
+                "append", "concat" -> {
+                    if (path.isEmpty()) continue
+                    ops.add(Op("append", path, content))
+                }
                 "replace", "patch", "edit", "modify" -> {
+                    if (path.isEmpty()) continue
                     val (old, new) = parseReplace(content)
                     ops.add(Op("replace", path, old = old, new = new))
                 }
-                "delete", "rm", "remove" -> ops.add(Op("delete", path))
-                "create_dir", "mkdir", "make_dir", "folder", "new_folder", "md" ->
+                "delete", "rm", "remove" -> {
+                    if (path.isEmpty()) continue
+                    ops.add(Op("delete", path))
+                }
+                "create_dir", "mkdir", "make_dir", "folder", "new_folder", "md" -> {
+                    if (path.isEmpty()) continue
                     ops.add(Op("mkdir", path))
+                }
                 "copy", "cp", "duplicate" -> {
                     val (src, dst) = parseSrcDst(content, path)
-                    if (src.isNotEmpty() && dst.isNotEmpty()) ops.add(Op("copy", src, content = dst))
+                    val s = src.ifEmpty { path }
+                    if (s.isNotEmpty() && dst.isNotEmpty()) ops.add(Op("copy", s, content = dst))
                 }
                 "move", "mv", "rename", "ren" -> {
                     val (src, dst) = parseSrcDst(content, path)
-                    if (src.isNotEmpty() && dst.isNotEmpty()) ops.add(Op("move", src, content = dst))
+                    val s = src.ifEmpty { path }
+                    if (s.isNotEmpty() && dst.isNotEmpty()) ops.add(Op("move", s, content = dst))
                 }
-                "read", "cat", "view" -> ops.add(Op("read", path))
-                "list", "ls", "dir" -> ops.add(Op("list", path))
+                "read", "cat", "view" -> {
+                    if (path.isEmpty()) continue
+                    ops.add(Op("read", path))
+                }
+                "list", "ls", "dir" -> {
+                    if (path.isEmpty()) continue
+                    ops.add(Op("list", path))
+                }
                 "savebody", "save_body", "savetext" -> {
                     val spec = if (rawPath.isNotEmpty()) rawPath else content.trim()
                     ops.add(Op("savebody", cleanPath(spec)))
