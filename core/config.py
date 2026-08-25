@@ -60,7 +60,7 @@ DEFAULT_SETTINGS = {
     "ui": {
         "theme": "dark",
         "font_size": 16,
-        "font_family": "",
+        "font_family": "msyh",   # 聊天/阅读窗口字体（微软雅黑/宋体/楷体/黑体/仿宋）
         "window_w": 1100,
         "window_h": 720,
         "max_output_chars": 0,

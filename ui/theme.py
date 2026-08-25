@@ -1,7 +1,47 @@
 """主题/配色（Kivy 版）。字段名与桌面版 theme.THEMES 保持一致。
 同时提供全局字号缩放 fs()，让"设置-正文字号"能联动所有界面。"""
+import os
 from kivy.utils import get_color_from_hex
 from kivy.metrics import dp
+
+# ---- 可选中文字体（随 APK / EXE 打包进 assets/，用户在设置里切换）----
+# key -> (显示名, 文件名)。注册时把选中字体映射到 Kivy 默认家族 "Roboto"，
+# 这样所有控件（Label/TextInput/Button 等）无需逐个改 font_name 即可整体换字体。
+FONTS = {
+    "msyh":   ("微软雅黑", "msyh.ttc"),
+    "simsun": ("宋体",     "simsun.ttc"),
+    "simkai": ("楷体",     "simkai.ttf"),
+    "simhei": ("黑体",     "simhei.ttf"),
+    "simfang":("仿宋",     "simfang.ttf"),
+}
+
+
+def font_keys():
+    """返回所有可选字体 key 列表。"""
+    return list(FONTS.keys())
+
+
+def font_label(key):
+    """返回字体的中文显示名；未知 key 回退到微软雅黑。"""
+    return FONTS.get(key, FONTS["msyh"])[0]
+
+
+def font_filename(key):
+    """返回字体的文件名；未知 key 回退到微软雅黑。"""
+    return FONTS.get(key, FONTS["msyh"])[1]
+
+
+def font_path(key, base_dir=None):
+    """返回某字体 key 对应的字体文件绝对路径。
+    base_dir 为 assets 所在目录（默认取本文件所在 ui/ 的上级 assets，
+    或被 main.py 传入的可执行文件同目录）。找不到返回 None。"""
+    info = FONTS.get(key)
+    if not info:
+        return None
+    if base_dir is None:
+        # ui/theme.py -> 项目根；assets 在项目根下
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, "assets", info[1])
 
 THEMES = {
     "dark": {

@@ -139,6 +139,15 @@ class SettingsScreen(BoxLayout):
                                  color=theme.C('text'))
         self._row("正文字号", self.font_spin)
 
+        # 字体（聊天 / 阅读窗口整体换字体：微软雅黑/宋体/楷体/黑体/仿宋）
+        cur_font = self.settings["ui"].get("font_family", "msyh")
+        self.font_combo = Spinner(text=theme.font_label(cur_font),
+                                  values=[v[0] for v in theme.FONTS.values()],
+                                  size_hint_y=None, height=dp(42),
+                                  background_color=theme.C('panel2'), background_normal='',
+                                  color=theme.C('text'))
+        self._row("聊天/阅读字体", self.font_combo)
+
         save = Button(text="保存设置", size_hint_y=None, height=dp(46),
                       background_color=theme.C('accent'), background_normal='',
                       color=(1,1,1,1), font_size=fs(16))
@@ -241,6 +250,15 @@ class SettingsScreen(BoxLayout):
                 rs_key = k
         if rs_key:
             s.setdefault("ui", {})["reading_style"] = rs_key
+        # 字体：label -> key
+        f_label = self.font_combo.text
+        f_key = None
+        for k, (lab, _fn) in theme.FONTS.items():
+            if lab == f_label:
+                f_key = k
+                break
+        if f_key:
+            s.setdefault("ui", {})["font_family"] = f_key
         # 权限全部开启（与桌面版一致：默认最高权限、全自动）
         s["permissions"] = {
             "cmd": True, "automation": True, "browser": True,
@@ -255,5 +273,8 @@ class SettingsScreen(BoxLayout):
             pass
         self.status_lbl.text = "[OK] 已保存"
         if self.app:
-            self.app.apply_theme_to_all()
+            if f_key:
+                self.app.apply_font(f_key)
+            else:
+                self.app.apply_theme_to_all()
             self.app.chat.refresh_client()

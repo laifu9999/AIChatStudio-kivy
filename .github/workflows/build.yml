@@ -26,6 +26,30 @@ jobs:
           pip install --upgrade pip
           pip install buildozer Cython==0.29.33
 
+      - name: 准备中文字体（开源字体，映射到应用期望的文件名）
+        # 仓库不打包大体积字体文件；CI 在构建前安装开源中文字体并放到 assets/，
+        # 映射到 msyh/simsun/simkai/simhei/simfang，保证 APK 同样支持多字体切换。
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk fonts-arphic-uming fonts-arphic-ukai fonts-wqy-zenhei
+          mkdir -p assets
+          SANS=$(find /usr/share/fonts -iname 'NotoSansCJK*' | head -1)
+          SERIF=$(find /usr/share/fonts -iname 'NotoSerifCJK*' | head -1)
+          UMING=$(find /usr/share/fonts -iname 'uming*' | head -1)
+          UKAI=$(find /usr/share/fonts -iname 'ukai*' | head -1)
+          ZENHEI=$(find /usr/share/fonts -iname 'wqy-zenhei*' | head -1)
+          [ -n "$SANS" ]  && cp "$SANS"  assets/msyh.ttc
+          [ -n "$UMING" ]  && cp "$UMING"  assets/simsun.ttc
+          [ -n "$UKAI" ]   && cp "$UKAI"   assets/simkai.ttf
+          [ -n "$ZENHEI" ] && cp "$ZENHEI" assets/simhei.ttf
+          [ -n "$SERIF" ]  && cp "$SERIF"  assets/simfang.ttf
+          echo "=== assets 字体清单 ==="
+          ls -la assets/
+          echo "=== 缺失检查 ==="
+          for f in msyh.ttc simsun.ttc simkai.ttf simhei.ttf simfang.ttf; do
+            if [ ! -f "assets/$f" ]; then echo "缺失: $f"; fi
+          done
+
       - name: 缓存 Android SDK/NDK（加速二次构建）
         uses: actions/cache@v4
         with:

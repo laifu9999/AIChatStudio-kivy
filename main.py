@@ -9,10 +9,14 @@ import os
 import threading
 import platform
 
+# 主题模块（含 FONTS 字体注册表，供 _setup_cjk_font 选用）必须在字体注入前导入
+from ui import theme
+
 # ---------- 中文显示修复 ----------
 # Kivy 默认字体 Roboto 不含中文字形，会导致界面中文显示成方块/乱码。
 # 这里在应用启动前注入一个中文字体并设为全局默认字体（电脑 / 手机一致）。
-def _setup_cjk_font():
+# 字体可在「设置-字体」里切换（微软雅黑/宋体/楷体/黑体/仿宋），全部随包内嵌。
+def _setup_cjk_font(font_key=None):
     try:
         from kivy.core.text import LabelBase
         from kivy.config import Config
@@ -20,13 +24,29 @@ def _setup_cjk_font():
         return None
     here = os.path.dirname(os.path.abspath(__file__))
     sysroot = os.environ.get("SystemRoot", r"C:\Windows")
-    # 优先用内嵌字体（便携版 / Android 通用），其次用系统字体（Windows 渲染最佳）
-    candidates = [
-        os.path.join(here, "assets", "msyh.ttc"),
-        os.path.join(here, "assets", "NotoSansSC.ttf"),
+    # 读取已保存设置，确定要使用哪个字体（未设置则用微软雅黑）
+    if not font_key:
+        try:
+            from core import settings as _smod
+            _s = _smod.load_settings()
+            font_key = ((_s.get("ui") or {}).get("font_family")) or "msyh"
+        except Exception:
+            font_key = "msyh"
+    # 候选顺序：选中的字体 -> 所有内嵌字体 -> 系统字体（兜底）
+    candidates = []
+    chosen = theme.font_path(font_key, here)
+    if chosen:
+        candidates.append(chosen)
+    for k in theme.font_keys():
+        p = theme.font_path(k, here)
+        if p:
+            candidates.append(p)
+    candidates += [
         os.path.join(sysroot, "Fonts", "msyh.ttc"),
         os.path.join(sysroot, "Fonts", "simsun.ttc"),
         os.path.join(sysroot, "Fonts", "simhei.ttf"),
+        os.path.join(sysroot, "Fonts", "simkai.ttf"),
+        os.path.join(sysroot, "Fonts", "simfang.ttf"),
     ]
     for p in candidates:
         if p and os.path.exists(p):
@@ -60,7 +80,6 @@ from ui.settings_screen import SettingsScreen, KV as SETTINGS_KV
 from ui.tools_screen import ToolsScreen, KV as TOOLS_KV
 from ui.feed_screen import FeedScreen, KV as FEED_KV
 from ui.reader_screen import ReaderScreen, KV as READER_KV
-from ui import theme
 # fs() 既被注入到 KV 的 global_idmap（供 .kv 规则使用），这里也建一个 Python 层别名，
 # 避免 main.py 自身 Python 代码里误用未定义的裸 fs() 导致崩溃（此前 会话 抽屉因此闪退）。
 fs = theme.fs
@@ -146,6 +165,14 @@ class AIChatStudioApp(App):
         if sid:
             self.chat.select_session(sid)
         self.sm.current = "chat"
+
+    # ---- 字体切换：重新注册选中的字体并重建各屏（所有界面整体换字体）----
+    def apply_font(self, font_key):
+        try:
+            _setup_cjk_font(font_key)
+        except Exception:
+            pass
+        self.apply_theme_to_all()
 
     # ---- 会话抽屉 ----
     def open_sessions_drawer(self):
