@@ -53,8 +53,10 @@ p4a.branch = master
 # (bool) 为 SDK 工具关闭监控
 android.skip_scan_for_dynamic_symbols = True
 
-# Android 9+ 默认禁止明文 HTTP；开启后允许 http:// 接口（如本地 Ollama / 内网 API）
-android.extra_manifest_application_arguments = usesCleartextTraffic=true
+# Android 9+ 默认禁止明文 HTTP；开启后允许 http:// 接口（如本地 Ollama / 内网 API）。
+# 注意：该配置项的值是【文件路径】——buildozer 会把文件内容插入 <application> 标签，
+# 不能直接写属性文本（之前写成 usesCleartextTraffic=true 导致 FileNotFoundError）。
+android.extra_manifest_application_arguments = android_manifest_application_args.xml
 
 # (bool) 允许备份/恢复应用数据
 android.allow_backup = True
