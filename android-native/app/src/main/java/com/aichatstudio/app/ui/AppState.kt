@@ -76,7 +76,6 @@ class AppState(app: Application) : AndroidViewModel(app) {
     fun selectSession(sid: String) {
         current = store.loadSession(sid)
         messages = current?.messages?.toList() ?: emptyList()
-        feedUsedFirst = false   // 每个会话一次投喂，切会话重置
         autoActive = false
         feedStatus = ""
     }
@@ -99,14 +98,12 @@ class AppState(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------------- 投喂 ----------------
-    private var feedUsedFirst = false
-
+    // 首次投喂也每次都带，不再做"每个会话一次"的去重
     private fun buildFeedContext(): Pair<String, Boolean> {
         if (!feed.enabled) return "" to false
         val parts = mutableListOf<String>()
-        if (feed.firstText.isNotBlank() && !feedUsedFirst) {
+        if (feed.firstText.isNotBlank()) {
             parts.add(feed.firstText)
-            feedUsedFirst = true
         }
         for (p in feed.feedFiles) {
             val f = File(p)

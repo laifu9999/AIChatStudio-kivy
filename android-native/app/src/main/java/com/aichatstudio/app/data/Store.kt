@@ -34,6 +34,7 @@ class Store(context: Context) {
         var fontScale: Int = 16,
         var readingStyle: String = "cream",   // cream/green/night/parchment/white
         var fontSize: Int = 16,
+        var fontFamily: String = "default",   // default/sans/serif/kai/hei/fang（聊天/阅读字体）
         var autoExec: Boolean = true,
     )
 
@@ -50,6 +51,7 @@ class Store(context: Context) {
             s.fontScale = o.optInt("fontScale", 16)
             s.readingStyle = o.optString("readingStyle", "cream")
             s.fontSize = o.optInt("fontSize", 16)
+            s.fontFamily = o.optString("fontFamily", "default")
             s.autoExec = o.optBoolean("autoExec", true)
             s
         } catch (e: Exception) { s }
@@ -67,6 +69,7 @@ class Store(context: Context) {
                     .put("fontScale", s.fontScale)
                     .put("readingStyle", s.readingStyle)
                     .put("fontSize", s.fontSize)
+                    .put("fontFamily", s.fontFamily)
                     .put("autoExec", s.autoExec)
                     .toString(2)
             )

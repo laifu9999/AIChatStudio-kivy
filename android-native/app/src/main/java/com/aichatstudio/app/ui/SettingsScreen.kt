@@ -163,6 +163,25 @@ fun SettingsScreen(state: AppState, onBack: () -> Unit) {
                 }
             }
 
+            // 字体（聊天 / 阅读窗口整体换字体）
+            var fontMenu by remember { mutableStateOf(false) }
+            Box {
+                OutlinedButton(onClick = { fontMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "聊天/阅读字体：${Styles.fontLabels[state.settings.fontFamily] ?: "系统默认"}",
+                        fontSize = 14.sp,
+                    )
+                }
+                DropdownMenu(expanded = fontMenu, onDismissRequest = { fontMenu = false }) {
+                    Styles.fontLabels.forEach { (k, label) ->
+                        DropdownMenuItem(text = { Text(label) }, onClick = {
+                            state.settings = state.settings.copy(fontFamily = k)
+                            fontMenu = false
+                        })
+                    }
+                }
+            }
+
             // 字号
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("正文字号", color = pal.text, fontSize = 14.sp, modifier = Modifier.width(80.dp))

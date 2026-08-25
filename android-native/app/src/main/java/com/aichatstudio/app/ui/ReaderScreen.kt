@@ -27,6 +27,7 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
     var editText by remember { mutableStateOf("") }
     var title by remember { mutableStateOf("阅读窗口") }
     var fs by remember { mutableStateOf(state.settings.fontSize) }
+    val fontFamily = Styles.fontFamilyOf(state.settings.fontFamily)
     var status by remember { mutableStateOf("") }
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
@@ -139,7 +140,7 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
                     .verticalScroll(scroll)
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
-                Text(content, color = pal.text, fontSize = fs.sp, lineHeight = (fs + 6).sp)
+                Text(content, color = pal.text, fontSize = fs.sp, lineHeight = (fs + 6).sp, fontFamily = fontFamily)
             }
         }
 

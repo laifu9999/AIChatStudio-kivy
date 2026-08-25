@@ -156,8 +156,10 @@ class AiClient(
                         val chunk = try { JSONObject(data) } catch (e: Exception) { continue }
                         val delta = chunk.optJSONArray("choices")?.optJSONObject(0)
                             ?.optJSONObject("delta") ?: continue
+                        // 过滤空 content、JSON null、以及 Deepseek 等模型偶发返回的字面量
+                        // "null"/"None"（避免整屏被 null 占满）
                         val content = delta.optString("content", "")
-                        if (content.isNotEmpty()) {
+                        if (content.isNotEmpty() && content != "null" && content != "None") {
                             full.append(content)
                             onToken(content)
                         }
@@ -168,7 +170,7 @@ class AiClient(
                         val chunk = try { JSONObject(data) } catch (e: Exception) { continue }
                         val delta = chunk.optJSONObject("delta") ?: continue
                         val content = delta.optString("text", "")
-                        if (content.isNotEmpty()) {
+                        if (content.isNotEmpty() && content != "null" && content != "None") {
                             full.append(content)
                             onToken(content)
                         }

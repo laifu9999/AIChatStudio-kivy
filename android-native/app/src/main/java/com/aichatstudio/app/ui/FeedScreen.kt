@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.File
 
-/** 投喂设置：每个会话一次文字投喂 + 指定文件无限次投喂 + 自动续章开关/章数。 */
+/** 投喂设置：每次发送都投喂的文字 + 指定文件 + 自动续章开关/章数。 */
 @Composable
 fun FeedScreen(state: AppState, onBack: () -> Unit) {
     val pal = Styles.palette(state.settings.readingStyle)
@@ -54,12 +54,12 @@ fun FeedScreen(state: AppState, onBack: () -> Unit) {
 
             HorizontalDivider()
 
-            // 每个会话一次投喂
-            Text("每个会话一次投喂（切换会话后自动再次触发）", color = pal.textDim, fontSize = 13.sp)
+            // 每次发送都投喂的文字（无限制：开关启用后，每次发送都带上）
+            Text("每次发送都投喂（与「指定文件」一起，每次发送都注入）", color = pal.textDim, fontSize = 13.sp)
             OutlinedTextField(
                 value = state.feed.firstText,
                 onValueChange = { state.feed = state.feed.copy(firstText = it); state.saveFeed() },
-                label = { Text("首次投喂内容") },
+                label = { Text("投喂内容") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3,
             )

@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,7 +86,7 @@ fun ChatScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(msgs) { m ->
-                    MessageBubble(m, pal)
+                    MessageBubble(m, pal, Styles.fontFamilyOf(state.settings.fontFamily))
                 }
             }
             // 回顶/回底
@@ -106,13 +107,13 @@ fun ChatScreen(
             }
         }
 
-        // 输入栏
+        // 输入栏：TextField 占中间（weight=1），粘贴用 trailingIcon，发送/停止固定宽在右
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(pal.panel)
-                .padding(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.Bottom,
         ) {
             OutlinedTextField(
                 value = state.inputText,
@@ -120,31 +121,35 @@ fun ChatScreen(
                 placeholder = { Text("输入消息…", fontSize = 14.sp) },
                 modifier = Modifier.weight(1f),
                 textStyle = LocalTextStyle.current.copy(fontSize = 15.sp, color = pal.text),
+                maxLines = 4,
+                trailingIcon = {
+                    TextButton(onClick = {
+                        val t = state.pasteText()
+                        if (t.isNotEmpty()) state.inputText = state.inputText + t
+                    }) { Text("粘贴", color = pal.text, fontSize = 12.sp) }
+                },
             )
             Spacer(Modifier.width(4.dp))
-            TextButton(onClick = {
-                val t = state.pasteText()
-                if (t.isNotEmpty()) state.inputText = state.inputText + t
-            }) { Text("粘贴", color = pal.text, fontSize = 13.sp) }
-            Column {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Button(
                     onClick = { state.send(state.inputText) },
                     enabled = !state.streaming,
                     colors = ButtonDefaults.buttonColors(containerColor = pal.accent),
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("发送", fontSize = 14.sp) }
+                ) { Text("发送", fontSize = 13.sp) }
                 OutlinedButton(
                     onClick = { state.stop() },
                     enabled = state.streaming,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("停止", fontSize = 12.sp) }
+                ) { Text("停止", fontSize = 11.sp) }
             }
         }
     }
 }
 
 @Composable
-fun MessageBubble(m: ChatMessage, pal: Styles.Palette) {
+fun MessageBubble(m: ChatMessage, pal: Styles.Palette, fontFamily: FontFamily = FontFamily.Default) {
     val isUser = m.role == "user"
     val bubbleColor = if (isUser) pal.userBubble else pal.aiBubble
     Row(
@@ -156,6 +161,7 @@ fun MessageBubble(m: ChatMessage, pal: Styles.Palette) {
             color = pal.text,
             fontSize = 16.sp,
             lineHeight = 22.sp,
+            fontFamily = fontFamily,
             modifier = Modifier
                 .fillMaxWidth(0.86f)
                 .clip(RoundedCornerShape(12.dp))

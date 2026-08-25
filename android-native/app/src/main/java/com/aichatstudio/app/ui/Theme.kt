@@ -1,6 +1,8 @@
 package com.aichatstudio.app.ui
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.AndroidFont
+import androidx.compose.ui.text.font.FontFamily
 
 /** 阅读小说风格配色（与桌面版一致）。 */
 object Styles {
@@ -48,5 +50,31 @@ object Styles {
     fun palette(key: String): Palette = when (key) {
         "green" -> green; "night" -> night; "parchment" -> parchment; "white" -> white
         else -> cream
+    }
+
+    // ---------- 字体：聊天/阅读窗口整体换字体（与 Kivy 版 FONTS 一致）----------
+    /** 字体 key -> 中文标签。 */
+    val fontLabels: Map<String, String> = mapOf(
+        "default" to "系统默认",
+        "sans" to "微软雅黑",
+        "serif" to "宋体",
+        "kai" to "楷体",
+        "hei" to "黑体",
+        "fang" to "仿宋",
+    )
+
+    /** 字体 key -> 对应的 Android 系统 Typeface 名（"serif"/"sans-serif" 等）。 */
+    private val fontTypefaceMap: Map<String, String> = mapOf(
+        "sans" to "sans-serif",
+        "serif" to "serif",
+        "kai" to "serif",     // 楷体衬线感 → 走 serif
+        "hei" to "sans-serif", // 黑体无衬线 → 走 sans-serif
+        "fang" to "serif",    // 仿宋衬线 → 走 serif
+    )
+
+    /** 根据 settings.fontFamily 返回 Compose 用 FontFamily（default 返回系统默认）。 */
+    fun fontFamilyOf(key: String): FontFamily {
+        val name = fontTypefaceMap[key] ?: return FontFamily.Default
+        return FontFamily(AndroidFont(name))
     }
 }
