@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+env/
+penv/
+
+# Buildozer / p4a
+.buildozer/
+bin/
+build/
+dist/
+libs/
+.gradle/
+
+# App runtime data（不进仓库，首次运行自动生成）
+data/sessions/
+data/auto_steps/
+data/settings.json
+data/feed.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

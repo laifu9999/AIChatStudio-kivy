@@ -1,0 +1,9 @@
+# Kivy 跨平台版依赖（Windows / Linux / Android 共用）
+# kivy 放宽下界，优先装带预编译 wheel 的最新 2.x（避免 3.13 等无 wheel 的版本从源码编译卡死）
+kivy>=2.3.0
+# Windows 图形后端 provider（Kivy 在 Windows 必须，显式列出更稳）
+kivy-deps.sdl2
+kivy-deps.glew
+kivy-deps.angle
+plyer==2.1.0
+requests>=2.25
