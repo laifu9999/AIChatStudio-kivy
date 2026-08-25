@@ -52,6 +52,16 @@ class AppState(app: Application) : AndroidViewModel(app) {
 
     private var client: AiClient? = null
 
+    companion object {
+        // 始终追加到 systemPrompt：强制让 AI 用标记保存文件，不要说"做不到"
+        private const val CAPS_SUFFIX = "\n\n[设备能力 - 必须遵守]\n" +
+            "你【可以】直接保存文件到用户手机存储。保存任何内容时，必须在正文前用 %%FILE:相对路径%% 标记，" +
+            "或用 ```file 路径\\n正文``` 代码块。程序会自动创建目录并写入到设备（UTF-8）。\n" +
+            "也可用 ```copy/move/rename/read/list/create_dir/append/replace/delete/open_url``` 等代码块操作文件和打开网页。\n" +
+            "【严禁】回复「无法保存/做不到/建议复制到其他App」等话术 —— 你的输出会被自动执行，写入设备。" +
+            "用户要求保存时，直接输出文件内容并带上标记即可。"
+    }
+
     fun rebuildClient() {
         client = if (settings.provider.isEmpty()) null else {
             val preset = Providers.byName(settings.provider) ?: return
@@ -60,9 +70,10 @@ class AppState(app: Application) : AndroidViewModel(app) {
                 apiKey = settings.apiKey,
                 model = settings.model,
                 baseUrlOverride = settings.baseUrl.takeIf { it.isNotBlank() },
-                systemPrompt = if (settings.deepThinking) {
-                    settings.systemPrompt + "\n\n[深度思考已开启] 请在最终回答前先进行充分推理，并把推理过程放在 ```thinking 与 ``` 之间。"
-                } else settings.systemPrompt,
+                systemPrompt = settings.systemPrompt + CAPS_SUFFIX +
+                    if (settings.deepThinking) {
+                        "\n\n[深度思考已开启] 请在最终回答前先进行充分推理，并把推理过程放在 ```thinking 与 ``` 之间。"
+                    } else "",
             )
         }
     }
@@ -172,21 +183,42 @@ class AppState(app: Application) : AndroidViewModel(app) {
             s.messages.add(streamBubble)
             current = s; messages = s.messages.toList()
 
+            val buffer = StringBuilder()
             var full = ""
+            // 客户端打字机：不管服务端怎么分块，前台按节奏逐字"吐出"显示并触发底部自动滚动
+            val typingJob = viewModelScope.launch(Dispatchers.Main) {
+                var shown = 0
+                while (streaming) {
+                    val target = synchronized(buffer) { buffer.toString() }
+                    if (shown < target.length) {
+                        val gap = target.length - shown
+                        // 步长：差距大则快一些追上，差距小则 1 字，体感像打字
+                        val step = when {
+                            gap > 200 -> 6
+                            gap > 80 -> 4
+                            gap > 20 -> 2
+                            else -> 1
+                        }
+                        shown = (shown + step).coerceAtMost(target.length)
+                        streamBubble.content = target.substring(0, shown) + "▌"
+                        messages = s.messages.toList()
+                    }
+                    kotlinx.coroutines.delay(28)
+                }
+            }
             try {
                 full = withContext(Dispatchers.IO) {
                     c.chat(msgs) { delta ->
-                        full += delta
-                        // 流式增量必须回到主线程再更新 Compose 状态
-                        kotlinx.coroutines.withContext(Dispatchers.Main) {
-                            streamBubble.content = full + "▌"
-                            messages = s.messages.toList()
-                        }
+                        // 只往 buffer 里追加，由前台打字机协程负责显示
+                        synchronized(buffer) { buffer.append(delta) }
                     }
                 }
             } catch (e: Exception) {
                 full = "[!] 调用出错：${e.message}"
+                synchronized(buffer) { buffer.setLength(0); buffer.append(full) }
             }
+            streaming = false
+            typingJob.join()
             streamBubble.content = full
             if (full.startsWith("[!]") || full.isBlank()) {
                 // 出错时保留错误气泡
