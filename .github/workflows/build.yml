@@ -3,6 +3,9 @@ name: Build Android APK
 on:
   push:
     branches: [main, master]
+    paths-ignore:
+      - 'android-native/**'
+      - '.github/workflows/android-native.yml'
   workflow_dispatch:
 
 jobs:

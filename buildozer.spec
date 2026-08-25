@@ -12,8 +12,8 @@ package.domain = com.aichatstudio
 source.dir = .
 # (list) 包含的扩展名（务必含 ttc/ttf，否则中文字体不会被打进 APK，手机端中文会变方块）
 source.include_exts = py,png,jpg,kv,json,txt,md,ttc,ttf
-# (list) 排除（避免把本地 venv/缓存打进包）
-source.exclude_dirs = env,venv,penv,pylibs,build,dist,.git,__pycache__
+# (list) 排除（避免把本地 venv/缓存/原生工程打进包）
+source.exclude_dirs = env,venv,penv,pylibs,build,dist,.git,__pycache__,android-native
 source.exclude_patterns = *.pyc,*.pyo,*/__pycache__/*
 
 # (str) 主程序
