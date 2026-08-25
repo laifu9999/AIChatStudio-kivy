@@ -65,8 +65,13 @@ jobs:
 
       - name: 构建 APK（debug）
         # pipefail：确保 buildozer 真实报错能中断步骤、被准确报告（之前用 tee 掩盖了退出码）
+        # JAVA_HOME：Android Gradle plugin 要求 Java 17，而 ubuntu-22.04 runner 默认
+        # JAVA_HOME 指向 Java 11（报 "requires Java 17 to run"），必须显式切到 17。
         run: |
           set -eo pipefail
+          echo "JAVA_HOME was: $JAVA_HOME"
+          export JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64
+          echo "JAVA_HOME now: $JAVA_HOME"
           buildozer -v android debug 2>&1 | tee buildozer_build.log
 
       - name: 上传 APK
