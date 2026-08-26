@@ -173,6 +173,21 @@ fun ChatScreen(
             }
         }
 
+        // 流式打字区：始终在输入框正上方，实时逐字显示最新内容（独立 State 直接读取，绝不闪现）
+        if (state.streamingActive) {
+            Text(
+                text = state.streamingText,
+                color = pal.text,
+                fontSize = 16.sp,
+                lineHeight = 22.sp,
+                fontFamily = Styles.fontFamilyOf(state.settings.fontFamily),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(pal.aiBubble)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            )
+        }
+
         // 输入栏：圆角输入框 + 右侧圆形发送/停止按钮
         Row(
             modifier = Modifier

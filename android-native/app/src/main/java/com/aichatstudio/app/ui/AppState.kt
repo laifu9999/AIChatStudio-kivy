@@ -43,6 +43,12 @@ class AppState(app: Application) : AndroidViewModel(app) {
         private set
     var inputText by mutableStateOf("")
 
+    // 流式打字机：独立的 Compose State，输入框上方专用区域直接读取（逐帧保证重绘，绝不闪现）
+    var streamingActive by mutableStateOf(false)
+        private set
+    var streamingText by mutableStateOf("")
+        private set
+
     // 续章状态
     private var autoRound = 0
     private var autoTotal = 0
@@ -190,6 +196,8 @@ class AppState(app: Application) : AndroidViewModel(app) {
         stopFlag = true
         autoActive = false
         streaming = false
+        streamingActive = false
+        streamingText = ""
         feedStatus = "已停止"
     }
 
@@ -217,20 +225,19 @@ class AppState(app: Application) : AndroidViewModel(app) {
             if (looksLikeSaveRequest(userText)) {
                 msgs.add(ChatMessage("system", SAVE_NUDGE))
             }
-            val streamBubble = ChatMessage("assistant", "")
-            s.messages.add(streamBubble)
-            current = s; messages = s.messages.toList()
-
+            streamingActive = true
+            streamingText = ""
             val buffer = StringBuilder()
             var full = ""
             val showThink = settings.showThinking
-            // 客户端打字机：showThink=true 时整段流；否则跳过 ```thinking``` 块只流式显示最终答案
+            // 客户端打字机：逐字结果写入独立 State streamingText（输入框上方专用区域直接读取）
             val typingJob = viewModelScope.launch(Dispatchers.Main) {
                 var shown = 0
                 var streamStart = 0
                 var inThinkPhase = false
                 // 循环不以 streaming 为退出条件：AI 整段返回时也要把内容逐字"吐完"再结束
                 while (true) {
+                    if (stopFlag) break
                     val target = synchronized(buffer) { buffer.toString() }
                     if (showThink) {
                         streamStart = 0
@@ -246,8 +253,7 @@ class AppState(app: Application) : AndroidViewModel(app) {
                             // 思考块还没写完：只显示"思考中"
                             if (!inThinkPhase) {
                                 inThinkPhase = true
-                                streamBubble.content = "思考中…"
-                                messages = s.messages.toList()
+                                streamingText = "思考中…"
                             }
                             kotlinx.coroutines.delay(28); continue
                         } else {
@@ -265,8 +271,7 @@ class AppState(app: Application) : AndroidViewModel(app) {
                             else -> 1
                         }
                         shown = (shown + step).coerceAtMost(displayable.length)
-                        streamBubble.content = displayable.substring(0, shown) + "▌"
-                        messages = s.messages.toList()
+                        streamingText = displayable.substring(0, shown) + "▌"
                     } else if (!streaming) {
                         break
                     }
@@ -286,19 +291,16 @@ class AppState(app: Application) : AndroidViewModel(app) {
             }
             streaming = false
             typingJob.join()
-            streamBubble.content = stripThinking(full)
-            if (full.startsWith("[!]") || full.isBlank()) {
-                // 出错时保留错误气泡
-            } else if (settings.autoExec) {
-                // 自动执行文件/命令操作（用原始 full 确保能扫到标记）
-                applyFileOps(full)
+            streamingActive = false
+            streamingText = ""
+            if (full.startsWith("[!]")) {
+                s.messages.add(ChatMessage("assistant", full))
+            } else if (full.isNotBlank()) {
+                if (settings.autoExec) applyFileOps(full)
+                s.messages.add(ChatMessage("assistant", stripThinking(full)))
             }
-            val stored = stripThinking(full)
-            s.messages.remove(streamBubble)
-            s.messages.add(ChatMessage("assistant", stored))
             current = s; messages = s.messages.toList()
             store.saveSession(s)
-            streaming = false
 
             if (!stopFlag && auto) maybeAutoContinue()
         }
