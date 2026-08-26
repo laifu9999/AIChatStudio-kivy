@@ -5,11 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -46,27 +44,36 @@ fun ChatScreen(
 ) {
     val pal = Styles.palette(state.settings.readingStyle)
     val listState = rememberLazyListState()
-    val streamScroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val msgs = state.messages
 
-    // 新消息自动滚到底
-    LaunchedEffect(msgs.size) {
-        if (msgs.isNotEmpty()) {
-            listState.animateScrollToItem(msgs.size - 1)
+    // 渲染列表 = 真实消息 + （流式时）一条临时打字气泡，让打字效果在聊天窗口全屏显示完整内容
+    val displayList = if (state.streamingActive) {
+        msgs + ChatMessage("assistant", state.streamingText)
+    } else msgs
+
+    // 新消息（含流式开始）出现时，平滑滚到底
+    LaunchedEffect(displayList.size) {
+        if (displayList.isNotEmpty()) {
+            listState.animateScrollToItem(displayList.lastIndex)
         }
     }
-    // 流式结束后，把最新回复滚到底部（输入框正上方可见）
+    // 流式结束后，把最终回复平滑滚到底（默认最底部，不跳回顶部）
     LaunchedEffect(state.streamingActive) {
-        if (!state.streamingActive && msgs.isNotEmpty()) {
-            listState.animateScrollToItem(msgs.size - 1)
+        if (!state.streamingActive && displayList.isNotEmpty()) {
+            listState.animateScrollToItem(displayList.lastIndex)
         }
     }
-    // 流式打字时，限高区内自动滚到最底，让最新字符始终可见
+    // 流式打字中：仅当用户已在底部附近时即时跟随最底，保证最新字符可见且不抢走阅读
     LaunchedEffect(state.streamingText) {
-        if (state.streamingActive && state.streamingText.isNotEmpty()) {
-            streamScroll.scrollTo(streamScroll.maxValue)
+        if (state.streamingActive) {
+            val info = listState.layoutInfo
+            val lastIdx = info.totalItemsCount - 1
+            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            if (lastVisible >= lastIdx - 1) {
+                listState.scrollToItem(lastIdx)
+            }
         }
     }
 
@@ -146,7 +153,7 @@ fun ChatScreen(
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(msgs) { m ->
+                items(displayList) { m ->
                     MessageBubble(
                         m,
                         pal,
@@ -174,30 +181,10 @@ fun ChatScreen(
                     SmallScrollButton(
                         icon = Icons.Default.KeyboardArrowDown,
                         contentDescription = "回底",
-                        onClick = { scope.launch { listState.scrollToItem(msgs.size - 1) } },
+                        onClick = { scope.launch { if (displayList.isNotEmpty()) listState.scrollToItem(displayList.lastIndex) } },
                         pal = pal,
                     )
                 }
-            }
-        }
-
-        // 流式打字区：始终在输入框正上方，限高可滚动，绝不把输入框挤出屏幕
-        if (state.streamingActive) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(pal.aiBubble)
-                    .heightIn(max = 180.dp)
-                    .verticalScroll(streamScroll)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-            ) {
-                Text(
-                    text = state.streamingText,
-                    color = pal.text,
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp,
-                    fontFamily = Styles.fontFamilyOf(state.settings.fontFamily),
-                )
             }
         }
 
@@ -236,8 +223,8 @@ fun ChatScreen(
                                         focusManager.clearFocus()
                                         state.send(t)
                                         scope.launch {
-                                            if (state.messages.isNotEmpty()) {
-                                                listState.animateScrollToItem(state.messages.size - 1)
+                                            if (displayList.isNotEmpty()) {
+                                                listState.animateScrollToItem(displayList.lastIndex)
                                             }
                                         }
                                     }

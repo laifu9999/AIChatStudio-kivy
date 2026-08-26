@@ -133,8 +133,18 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
                     }) { Text("上一级", color = pal.text, fontSize = 12.sp) }
                     TextButton(onClick = {
                         val d = dirStack.lastOrNull() ?: state.store.root
-                        if (!state.openFolderOnPhone(d)) status = "打开失败：路径已复制到剪贴板，请打开文件管理器粘贴定位"
-                        else status = "已请求打开：${d.path}（路径已复制）"
+                        val ok = state.openFolderOnPhone(d)
+                        // 无论如何都把应用内文件浏览器定位到该目录，保证一定能看到位置
+                        val root = state.store.root
+                        dirStack = if (d.path.startsWith(root.path)) {
+                            val st = mutableListOf<File>()
+                            var cur: File? = d
+                            while (cur != null && cur.path != root.path) { st.add(0, cur); cur = cur.parentFile }
+                            st.add(0, root); st
+                        } else mutableListOf(d)
+                        fileList = state.listDir(d)
+                        status = if (ok) "已尝试在系统文件管理器打开：${d.path}\n（路径已复制，可在文件管理器粘贴定位）"
+                                 else "已为你定位到应用内文件列表：${d.path}\n（本机文件管理器无法打开该位置，路径已复制）"
                     }) { Text("打开位置", color = pal.text, fontSize = 12.sp) }
                     TextButton(onClick = { fileList = null }) { Text("收起", fontSize = 12.sp) }
                 }
