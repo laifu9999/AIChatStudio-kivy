@@ -127,11 +127,36 @@ fun SettingsScreen(state: AppState, onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            // 模型
+            // 模型：点开下拉选择（自动获取的模型列表），也可手动输入
+            var modelMenu by remember { mutableStateOf(false) }
+            Box {
+                OutlinedButton(
+                    onClick = { if (modelOptions.isNotEmpty()) modelMenu = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        if (state.settings.model.isNotEmpty()) "模型：${state.settings.model}"
+                        else "模型（下拉选择或手动输入）",
+                        fontSize = 14.sp,
+                    )
+                }
+                DropdownMenu(expanded = modelMenu, onDismissRequest = { modelMenu = false }) {
+                    modelOptions.forEach { m ->
+                        DropdownMenuItem(text = { Text(m, maxLines = 1) }, onClick = {
+                            state.settings = state.settings.copy(model = m)
+                            modelMenu = false
+                            status = "已选择模型：$m"
+                        })
+                    }
+                    if (modelOptions.isEmpty()) {
+                        DropdownMenuItem(text = { Text("暂无模型列表，请先点「获取模型列表」") }, onClick = { modelMenu = false })
+                    }
+                }
+            }
             OutlinedTextField(
                 value = state.settings.model,
                 onValueChange = { state.settings = state.settings.copy(model = it) },
-                label = { Text("模型") },
+                label = { Text("手动输入模型名") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )

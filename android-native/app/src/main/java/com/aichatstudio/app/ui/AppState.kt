@@ -3,6 +3,8 @@ package com.aichatstudio.app.ui
 import android.app.Application
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -87,6 +89,9 @@ class AppState(app: Application) : AndroidViewModel(app) {
         private val THINKING_RE = Regex("```thinking\\s*\\n(.*?)```", RegexOption.DOT_MATCHES_ALL)
         fun stripThinking(content: String): String =
             content.replace(THINKING_RE, "").trim()
+
+        // 回复完成后的收尾：提示完成 + 给建议
+        private const val REPLY_FOOTER = "\n\n—— 回复完成 ✅\n试试：① 保存到文件  ② 继续写下去  ③ 总结要点"
 
         // 检测用户是否要求保存/创建文件
         fun looksLikeSaveRequest(text: String): Boolean {
@@ -175,10 +180,19 @@ class AppState(app: Application) : AndroidViewModel(app) {
         val t = text.trim()
         if (t.isEmpty() || streaming) return
         if (current == null) newSession()
+        var s = current ?: return
+        // 首个消息自动命名：时间 + 首句前几个字
+        if (s.meta.name == "新会话") {
+            val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                .format(java.util.Date())
+            val newMeta = s.meta.copy(name = "$time ${t.take(12)}", updated = System.currentTimeMillis())
+            s = s.copy(meta = newMeta)
+            current = s
+            store.saveSession(s)
+            sessions = store.listSessions()
+        }
         inputText = ""
         autoToken++
-        val s = current ?: return
-
         val feedCfg = feed
         autoActive = feedCfg.autoContinue
         autoRound = 1
@@ -271,7 +285,7 @@ class AppState(app: Application) : AndroidViewModel(app) {
                             else -> 1
                         }
                         shown = (shown + step).coerceAtMost(displayable.length)
-                        streamingText = displayable.substring(0, shown) + "▌"
+                        streamingText = displayable.substring(0, shown)
                     } else if (!streaming) {
                         break
                     }
@@ -297,7 +311,7 @@ class AppState(app: Application) : AndroidViewModel(app) {
                 s.messages.add(ChatMessage("assistant", full))
             } else if (full.isNotBlank()) {
                 if (settings.autoExec) applyFileOps(full)
-                s.messages.add(ChatMessage("assistant", stripThinking(full)))
+                s.messages.add(ChatMessage("assistant", stripThinking(full) + REPLY_FOOTER))
             }
             current = s; messages = s.messages.toList()
             store.saveSession(s)
@@ -388,4 +402,17 @@ class AppState(app: Application) : AndroidViewModel(app) {
 
     fun listDir(dir: File): List<Pair<String, File>> =
         dir.listFiles()?.sortedBy { it.name }?.map { it.name to it } ?: emptyList()
+
+    /** 在系统文件管理器里打开一个文件夹（尽力而为，部分机型弹选择器）。 */
+    fun openFolderOnPhone(dir: File): Boolean {
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW)
+            intent.setDataAndType(Uri.fromFile(dir), "resource/folder")
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            getApplication<Application>().startActivity(intent)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
 }

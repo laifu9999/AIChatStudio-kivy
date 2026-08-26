@@ -34,6 +34,7 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     val editFocus = remember { FocusRequester() }
+    var dirStack by remember { mutableStateOf<List<File>>(emptyList()) }
 
     // 进入编辑时自动聚焦并弹出输入法；配合 imePadding 整体上移，输入框不被键盘盖住
     LaunchedEffect(editing) {
@@ -96,18 +97,22 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             TextButton(onClick = {
-                val files = state.listProjectFiles()
-                fileList = files
-                if (files.isEmpty()) status = "（会话还没有文件，让 AI 用 %%FILE: 生成）"
+                val folder = state.current?.folder
+                if (folder != null) {
+                    dirStack = listOf(folder)
+                    fileList = state.listDir(folder)
+                    if (fileList.isNullOrEmpty()) status = "（会话还没有文件，让 AI 用 %%FILE: 生成）"
+                }
             }) { Text("项目文件", color = pal.text, fontSize = 13.sp) }
             TextButton(onClick = {
-                fileList = state.listDir(state.store.root).map { it.first to it.second }
+                dirStack = listOf(state.store.root)
+                fileList = state.listDir(state.store.root)
             }) { Text("应用目录", color = pal.text, fontSize = 13.sp) }
             TextButton(onClick = { scope.launch { scroll.scrollTo(0) } }) { Text("回顶", color = pal.text, fontSize = 13.sp) }
             TextButton(onClick = { scope.launch { scroll.scrollTo(scroll.maxValue) } }) { Text("回底", color = pal.text, fontSize = 13.sp) }
         }
 
-        // 文件列表（点击打开 / 目录则进入）
+        // 文件列表（点击打开 / 目录则进入；支持返回上一级、在手机文件管理器打开所在位置）
         fileList?.let { files ->
             Column(
                 modifier = Modifier
@@ -118,17 +123,31 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("文件 ${files.size} 个（点开查看/阅读/修改）", color = pal.textDim,
                         fontSize = 12.sp, modifier = Modifier.weight(1f).padding(start = 10.dp))
+                    TextButton(onClick = {
+                        if (dirStack.size > 1) {
+                            dirStack = dirStack.dropLast(1)
+                            fileList = state.listDir(dirStack.last())
+                            status = "已返回上一级：${dirStack.last().path}"
+                        } else status = "已在最上级目录"
+                    }) { Text("上一级", color = pal.text, fontSize = 12.sp) }
+                    TextButton(onClick = {
+                        val d = dirStack.lastOrNull() ?: state.store.root
+                        if (!state.openFolderOnPhone(d)) status = "打开失败：请授予「所有文件访问」权限"
+                        else status = "正在打开：${d.path}"
+                    }) { Text("打开位置", color = pal.text, fontSize = 12.sp) }
                     TextButton(onClick = { fileList = null }) { Text("收起", fontSize = 12.sp) }
                 }
-                files.take(80).forEach { (rel, f) ->
+                files.take(80).forEach { (name, f) ->
                     TextButton(
                         onClick = {
                             if (f.isDirectory) {
-                                fileList = state.listDir(f).map { rel + "/" + it.first to it.second }
+                                dirStack = dirStack + f
+                                fileList = state.listDir(f)
+                                status = f.path
                             } else loadFile(f)
                         },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text((if (f.isDirectory) "📁 " else "") + rel, color = pal.text,
+                    ) { Text((if (f.isDirectory) "📁 " else "") + name, color = pal.text,
                         fontSize = 13.sp, maxLines = 1) }
                 }
             }

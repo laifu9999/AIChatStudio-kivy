@@ -60,6 +60,8 @@ object Styles {
         "kai" to "楷体",
         "hei" to "黑体",
         "fang" to "仿宋",
+        "pingfang" to "苹方(PingFang)",
+        "apple" to "苹果(SF)",
     )
 
     /** 字体 key -> 对应的 Android 系统 Typeface 名（"serif"/"sans-serif" 等）。 */
@@ -69,6 +71,8 @@ object Styles {
         "kai" to "serif",     // 楷体衬线感 → 走 serif
         "hei" to "sans-serif", // 黑体无衬线 → 走 sans-serif
         "fang" to "serif",    // 仿宋衬线 → 走 serif
+        "pingfang" to "sans-serif",  // 苹方：安卓无此字体，用系统无衬线（最接近）
+        "apple" to "sans-serif",     // 苹果 SF：安卓无此字体，用系统无衬线
     )
 
     /** 根据 settings.fontFamily 返回 Compose 用 FontFamily（default 返回系统默认）。 */

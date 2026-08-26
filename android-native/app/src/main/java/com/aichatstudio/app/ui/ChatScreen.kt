@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -54,10 +56,9 @@ fun ChatScreen(
             listState.animateScrollToItem(msgs.size - 1)
         }
     }
-    // 流式逐字增量也滚到底（最新内容始终可见）
-    val lastMsg = msgs.lastOrNull()
-    LaunchedEffect(lastMsg?.content) {
-        if (msgs.isNotEmpty()) {
+    // 流式结束后，把最新回复滚到底部（输入框正上方可见）
+    LaunchedEffect(state.streamingActive) {
+        if (!state.streamingActive && msgs.isNotEmpty()) {
             listState.animateScrollToItem(msgs.size - 1)
         }
     }
@@ -173,19 +174,24 @@ fun ChatScreen(
             }
         }
 
-        // 流式打字区：始终在输入框正上方，实时逐字显示最新内容（独立 State 直接读取，绝不闪现）
+        // 流式打字区：始终在输入框正上方，限高可滚动，绝不把输入框挤出屏幕
         if (state.streamingActive) {
-            Text(
-                text = state.streamingText,
-                color = pal.text,
-                fontSize = 16.sp,
-                lineHeight = 22.sp,
-                fontFamily = Styles.fontFamilyOf(state.settings.fontFamily),
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(pal.aiBubble)
+                    .heightIn(max = 180.dp)
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 14.dp, vertical = 10.dp),
-            )
+            ) {
+                Text(
+                    text = state.streamingText,
+                    color = pal.text,
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp,
+                    fontFamily = Styles.fontFamilyOf(state.settings.fontFamily),
+                )
+            }
         }
 
         // 输入栏：圆角输入框 + 右侧圆形发送/停止按钮
