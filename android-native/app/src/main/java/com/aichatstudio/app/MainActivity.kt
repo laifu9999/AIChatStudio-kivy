@@ -104,7 +104,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** 会话抽屉：新建 / 切换 / 删除。 */
+/** 会话抽屉：新建 / 切换 / 批量删除（带确认弹窗）。 */
 @Composable
 private fun SessionsDrawer(
     state: AppState,
@@ -112,9 +112,11 @@ private fun SessionsDrawer(
     onSelect: (String) -> Unit,
 ) {
     val pal = Styles.palette(state.settings.readingStyle)
-    var pick by remember { mutableStateOf(false) }
+    var selectMode by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var confirmDelete by remember { mutableStateOf(false) }
 
-    // 简单的全屏模态：半透明遮罩 + 中央面板
+    // 全屏模态：半透明遮罩 + 中央面板
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -130,7 +132,34 @@ private fun SessionsDrawer(
             shape = MaterialTheme.shapes.medium,
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text("会话", color = pal.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "会话",
+                        color = pal.text,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (selectMode) {
+                        TextButton(onClick = {
+                            selected = if (selected.size == state.sessions.size && state.sessions.isNotEmpty())
+                                emptySet()
+                            else state.sessions.map { it.id }.toSet()
+                        }) { Text("全选", color = pal.text, fontSize = 13.sp) }
+                        TextButton(
+                            onClick = { confirmDelete = true },
+                            enabled = selected.isNotEmpty(),
+                        ) { Text("删除(${selected.size})", color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
+                        TextButton(onClick = {
+                            selectMode = false
+                            selected = emptySet()
+                        }) { Text("取消", color = pal.text, fontSize = 13.sp) }
+                    } else {
+                        TextButton(onClick = { selectMode = true }) {
+                            Text("批量删除", color = pal.text, fontSize = 13.sp)
+                        }
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
                 Button(
                     onClick = {
@@ -147,13 +176,27 @@ private fun SessionsDrawer(
                 ) {
                     items(state.sessions.size) { i ->
                         val s = state.sessions[i]
+                        val checked = s.id in selected
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = { onSelect(s.id) },
-                                modifier = Modifier.weight(1f)) {
+                            if (selectMode) {
+                                Checkbox(checked = checked, onCheckedChange = {
+                                    selected = if (checked) selected - s.id else selected + s.id
+                                })
+                            }
+                            TextButton(
+                                onClick = {
+                                    if (selectMode) {
+                                        selected = if (checked) selected - s.id else selected + s.id
+                                    } else onSelect(s.id)
+                                },
+                                modifier = Modifier.weight(1f),
+                            ) {
                                 Text(s.name, color = pal.text, fontSize = 14.sp, maxLines = 1)
                             }
-                            TextButton(onClick = { state.deleteSession(s.id) }) {
-                                Text("删", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                            if (!selectMode) {
+                                TextButton(onClick = { state.deleteSession(s.id) }) {
+                                    Text("删", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                                }
                             }
                         }
                     }
@@ -164,5 +207,26 @@ private fun SessionsDrawer(
                 }
             }
         }
+    }
+
+    // 删除确认弹窗
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("确认删除") },
+            text = { Text("确定要删除这 ${selected.size} 个会话吗？\n此操作不可撤销。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val ids = selected.toList()
+                    for (id in ids) state.deleteSession(id)
+                    selected = emptySet()
+                    selectMode = false
+                    confirmDelete = false
+                }) { Text("确认删除", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text("取消") }
+            },
+        )
     }
 }

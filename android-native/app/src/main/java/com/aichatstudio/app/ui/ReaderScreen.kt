@@ -12,6 +12,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -132,8 +133,8 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
                     }) { Text("上一级", color = pal.text, fontSize = 12.sp) }
                     TextButton(onClick = {
                         val d = dirStack.lastOrNull() ?: state.store.root
-                        if (!state.openFolderOnPhone(d)) status = "打开失败：请授予「所有文件访问」权限"
-                        else status = "正在打开：${d.path}"
+                        if (!state.openFolderOnPhone(d)) status = "打开失败：路径已复制到剪贴板，请打开文件管理器粘贴定位"
+                        else status = "已请求打开：${d.path}（路径已复制）"
                     }) { Text("打开位置", color = pal.text, fontSize = 12.sp) }
                     TextButton(onClick = { fileList = null }) { Text("收起", fontSize = 12.sp) }
                 }
@@ -170,9 +171,18 @@ fun ReaderScreen(state: AppState, onBack: () -> Unit) {
                     .fillMaxSize()
                     .weight(1f)
                     .verticalScroll(scroll)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(content, color = pal.text, fontSize = fs.sp, lineHeight = (fs + 6).sp, fontFamily = fontFamily)
+                Text(
+                    content,
+                    color = pal.text,
+                    fontSize = fs.sp,
+                    lineHeight = (fs + 6).sp,
+                    fontFamily = fontFamily,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
 

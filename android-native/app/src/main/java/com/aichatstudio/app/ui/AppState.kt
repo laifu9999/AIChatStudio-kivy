@@ -403,16 +403,34 @@ class AppState(app: Application) : AndroidViewModel(app) {
     fun listDir(dir: File): List<Pair<String, File>> =
         dir.listFiles()?.sortedBy { it.name }?.map { it.name to it } ?: emptyList()
 
-    /** 在系统文件管理器里打开一个文件夹（尽力而为，部分机型弹选择器）。 */
+    /** 在系统文件管理器里打开一个文件夹。优先 ACTION_VIEW + 通配 MIME；失败时把路径写入剪贴板。 */
     fun openFolderOnPhone(dir: File): Boolean {
-        return try {
-            val intent = Intent(Intent.ACTION_VIEW)
-            intent.setDataAndType(Uri.fromFile(dir), "resource/folder")
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            getApplication<Application>().startActivity(intent)
-            true
-        } catch (_: Exception) {
-            false
-        }
+        val ctx = getApplication<Application>()
+        try {
+            val i1 = Intent(Intent.ACTION_VIEW)
+            i1.setDataAndType(Uri.fromFile(dir), "*/*")
+            i1.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ctx.startActivity(i1)
+            return true
+        } catch (_: Exception) {}
+        try {
+            val i2 = Intent(Intent.ACTION_VIEW)
+            i2.setDataAndType(Uri.fromFile(dir), "resource/folder")
+            i2.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ctx.startActivity(i2)
+            return true
+        } catch (_: Exception) {}
+        try {
+            val i3 = Intent(Intent.ACTION_MAIN)
+            i3.component = android.content.ComponentName(
+                "com.android.documentsui", "com.android.documentsui.files.FilesActivity"
+            )
+            i3.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ctx.startActivity(i3)
+            copyText(dir.absolutePath)
+            return true
+        } catch (_: Exception) {}
+        copyText(dir.absolutePath)
+        return false
     }
 }

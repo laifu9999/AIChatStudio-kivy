@@ -46,6 +46,7 @@ fun ChatScreen(
 ) {
     val pal = Styles.palette(state.settings.readingStyle)
     val listState = rememberLazyListState()
+    val streamScroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val msgs = state.messages
@@ -60,6 +61,12 @@ fun ChatScreen(
     LaunchedEffect(state.streamingActive) {
         if (!state.streamingActive && msgs.isNotEmpty()) {
             listState.animateScrollToItem(msgs.size - 1)
+        }
+    }
+    // 流式打字时，限高区内自动滚到最底，让最新字符始终可见
+    LaunchedEffect(state.streamingText) {
+        if (state.streamingActive && state.streamingText.isNotEmpty()) {
+            streamScroll.scrollTo(streamScroll.maxValue)
         }
     }
 
@@ -181,7 +188,7 @@ fun ChatScreen(
                     .fillMaxWidth()
                     .background(pal.aiBubble)
                     .heightIn(max = 180.dp)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(streamScroll)
                     .padding(horizontal = 14.dp, vertical = 10.dp),
             ) {
                 Text(
